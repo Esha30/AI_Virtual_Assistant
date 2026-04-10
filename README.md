@@ -62,8 +62,8 @@ AI_powered_Virtual_Assistant/
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/AI_powered_Virtual_Assistant.git
-cd AI_powered_Virtual_Assistant
+git clone https://github.com/Esha30/AI_Virtual_Assistant.git
+cd AI_Virtual_Assistant
 ```
 
 ---
@@ -127,7 +127,7 @@ Frontend will run at `http://localhost:5173`
 |---|---|
 | Frontend | React 19, Vite 6, TailwindCSS 4, Framer Motion |
 | Backend | FastAPI, Uvicorn, Motor (async MongoDB) |
-| AI Engine | Google Gemini 2.0 Flash → OpenAI GPT-4o-mini fallback |
+| AI Engine | Google Gemini 2.5 Flash → OpenAI GPT-4o-mini fallback → Pollinations Free Provider |
 | Database | MongoDB Atlas |
 | Auth | JWT (python-jose + passlib) |
 | Icons | Lucide React |
@@ -140,4 +140,4 @@ MIT License — feel free to use, modify and distribute.
 
 ---
 
-> Built with ❤️ by [Your Name]
+> Built with ❤️ by Esha

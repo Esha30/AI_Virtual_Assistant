@@ -101,8 +101,8 @@ async def process_user_message(user_message: str, history_docs: list, db=None, u
     if gemini_client:
         # Prioritize standard models with high free capacity
         AVAILABLE_MODELS = [
-            'gemini-2.0-flash',
-            'gemini-2.0-flash-lite-preview-02-05'
+            'gemini-2.5-flash',
+            'gemini-2.5-flash-lite'
         ]
         gemini_tools = [add_task_tool, list_tasks_tool, set_reminder_tool, play_video_tool, get_status_tool]
         
@@ -280,14 +280,35 @@ async def process_user_message(user_message: str, history_docs: list, db=None, u
                     if doc.get("bot_response"):
                         messages_pollin.append({"role": "assistant", "content": doc["bot_response"]})
                 messages_pollin.append({"role": "user", "content": user_message})
-                response = requests.post(
-                    "https://text.pollinations.ai/openai/",
-                    json={"model": "openai", "messages": messages_pollin},
-                    timeout=30.0
-                )
-                if response.status_code == 200:
-                    return response.json()["choices"][0]["message"]["content"]
-                return f"Processing complete. (Status: {response.status_code})"
+                for _ in range(3):
+                    response = requests.post(
+                        "https://text.pollinations.ai/openai/",
+                        json={"model": "openai", "messages": messages_pollin, "tools": openai_tools},
+                        timeout=30.0
+                    )
+                    if response.status_code != 200:
+                        return f"Processing complete. (Status: {response.status_code})"
+                    
+                    msg = response.json()["choices"][0]["message"]
+                    if not msg.get("tool_calls"):
+                        return msg.get("content") or "Protocols updated."
+                    
+                    messages_pollin.append(msg)
+                    for tool_call in msg["tool_calls"]:
+                        fn_name = tool_call["function"]["name"]
+                        try:
+                            fn_args = json.loads(tool_call["function"]["arguments"])
+                        except Exception:
+                            fn_args = {}
+                        fn = tools_map.get(fn_name)
+                        result = await fn(**fn_args) if fn else f"Error: Tool {fn_name} not found."
+                        
+                        messages_pollin.append({
+                            "role": "tool",
+                            "tool_call_id": tool_call["id"],
+                            "name": fn_name,
+                            "content": result
+                        })
             except Exception as e2:
                 print(f"Pollinations fallback also failed: {e2}")
                 return "The servers are currently experiencing high demand. Please try again in just a moment!"
