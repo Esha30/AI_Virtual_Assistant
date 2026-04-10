@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+motor
+python-jose[cryptography]
+passlib[bcrypt]
+google-genai
+tenacity
+python-dotenv
+python-multipart
+openai
+g4f
