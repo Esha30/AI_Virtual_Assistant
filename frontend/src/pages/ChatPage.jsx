@@ -46,8 +46,8 @@ const ChatPage = () => {
       
       if (data) {
         if (data.sessions) setSessions(data.sessions);
-        if (data.tasks) setTasks(data.tasks.slice(0, 5));
-        if (data.reminders) setReminders(data.reminders.slice(0, 3));
+        if (data.tasks) setTasks(data.tasks);
+        if (data.reminders) setReminders(data.reminders);
         if (data.history && (sid || !activeSessionId)) {
           const loaded = [];
           data.history.forEach(doc => {
@@ -422,8 +422,8 @@ const ChatPage = () => {
           </button>
         </div>
 
-        {/* Sessions List */}
-        <div className="flex-1 overflow-y-auto px-3 pb-4 custom-scrollbar">
+        {/* Sessions List — scrollable */}
+        <div className="flex-1 overflow-y-auto px-3 pb-2 custom-scrollbar min-h-0">
           <div className="flex items-center justify-between px-2 mb-4">
             <p className="text-[10px] font-black uppercase tracking-widest text-[#3f3f46]">Conversations</p>
             <button 
@@ -473,8 +473,6 @@ const ChatPage = () => {
                           {session.title}
                         </span>
                       )}
-
-                      {/* Action Buttons */}
                       <div className="flex items-center gap-0.5 pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={(e) => startRenameSession(e, session)}
@@ -503,66 +501,83 @@ const ChatPage = () => {
               )}
             </AnimatePresence>
           </div>
+        </div>
 
-          {/* Tasks & Reminders Widget */}
-          {(tasks.length > 0 || reminders.length > 0) && (
-            <div className="mt-4 space-y-4">
-              <p className="text-[10px] font-black uppercase tracking-widest text-[#3f3f46] px-2 mb-1">Intelligence</p>
-              
-              {tasks.length > 0 && (
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-400 uppercase tracking-widest px-2 mb-2">
-                    <CheckCircle size={10} /> Tasks
-                  </div>
-                  {Array.isArray(tasks) && tasks.map((t) => (
-                    <div key={t._id || Math.random()} className="group flex items-center justify-between p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:border-emerald-500/20 transition-all duration-200">
-                      <div className="flex items-center gap-2.5 overflow-hidden">
-                        <button 
-                          onClick={() => handleToggleTask(t._id, t.completed)}
-                          className={`w-4 h-4 rounded-md border flex items-center justify-center transition-colors shrink-0 ${t.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-white/10 hover:border-emerald-500/50'}`}
-                        >
-                          {t.completed && <CheckCircle size={10} strokeWidth={3} />}
-                        </button>
-                        <span className={`text-[11px] truncate transition-colors ${t.completed ? 'text-slate-600 line-through' : 'text-slate-300'}`}>
-                          {t.task || 'Unnamed Task'}
-                        </span>
-                      </div>
-                      <button 
-                        onClick={() => handleDeleteTask(t._id)}
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-500/10 text-slate-600 hover:text-red-400 rounded transition-all"
-                      >
-                        <X size={10} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {reminders.length > 0 && (
-                <div className="space-y-1.5 pt-2">
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-500 uppercase tracking-widest px-2 mb-2">
-                    <Calendar size={10} /> Reminders
-                  </div>
-                  {Array.isArray(reminders) && reminders.map((r) => (
-                    <div key={r._id || Math.random()} className="group flex items-center justify-between p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:border-amber-500/20 transition-all duration-200">
-                      <div className="flex items-center gap-2.5 overflow-hidden">
-                        <div className="w-1 h-1 rounded-full bg-amber-500 shrink-0" />
-                        <span className="text-[11px] text-slate-300 truncate">
-                          {r.task || 'Unnamed Reminder'}
-                        </span>
-                      </div>
-                      <button 
-                        onClick={() => handleDeleteReminder(r._id)}
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-500/10 text-slate-600 hover:text-red-400 rounded transition-all"
-                      >
-                        <X size={10} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
+        {/* ── INTELLIGENCE PANEL — always visible, pinned above user footer ── */}
+        <div className="shrink-0 border-t border-white/[0.05] px-3 py-3 space-y-3">
+          {/* Header */}
+          <div className="flex items-center justify-between px-1">
+            <p className="text-[10px] font-black uppercase tracking-widest text-[#3f3f46]">Intelligence</p>
+            <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider">
+              <span className="text-emerald-500">{tasks.length} tasks</span>
+              <span className="text-slate-700">·</span>
+              <span className="text-amber-500">{reminders.length} reminders</span>
             </div>
-          )}
+          </div>
+
+          {/* Tasks section */}
+          <div>
+            <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-400 uppercase tracking-widest px-1 mb-1.5">
+              <CheckCircle size={10} /> Tasks
+            </div>
+            {tasks.length === 0 ? (
+              <p className="text-[10px] text-slate-700 px-2 py-1 italic">Ask Aura to add a task</p>
+            ) : (
+              <div className="space-y-1 max-h-[90px] overflow-y-auto custom-scrollbar pr-0.5">
+                {Array.isArray(tasks) && tasks.map((t) => (
+                  <div key={t._id || Math.random()} className="group flex items-center justify-between px-2 py-1.5 rounded-lg bg-white/[0.02] border border-white/[0.04] hover:border-emerald-500/20 transition-all">
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <button
+                        onClick={() => handleToggleTask(t._id, t.completed)}
+                        className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors shrink-0 ${t.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-white/10 hover:border-emerald-500/50'}`}
+                      >
+                        {t.completed && <CheckCircle size={8} strokeWidth={3} />}
+                      </button>
+                      <span className={`text-[10px] truncate ${t.completed ? 'text-slate-600 line-through' : 'text-slate-300'}`}>
+                        {t.task || 'Unnamed Task'}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteTask(t._id)}
+                      className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-red-500/10 text-slate-600 hover:text-red-400 rounded transition-all shrink-0"
+                    >
+                      <X size={9} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Reminders section */}
+          <div>
+            <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-500 uppercase tracking-widest px-1 mb-1.5">
+              <Calendar size={10} /> Reminders
+            </div>
+            {reminders.length === 0 ? (
+              <p className="text-[10px] text-slate-700 px-2 py-1 italic">Ask Aura to set a reminder</p>
+            ) : (
+              <div className="space-y-1 max-h-[90px] overflow-y-auto custom-scrollbar pr-0.5">
+                {Array.isArray(reminders) && reminders.map((r) => (
+                  <div key={r._id || Math.random()} className="group flex items-center justify-between px-2 py-1.5 rounded-lg bg-white/[0.02] border border-white/[0.04] hover:border-amber-500/20 transition-all">
+                    <div className="flex items-center gap-2 overflow-hidden min-w-0">
+                      <div className="w-1 h-1 rounded-full bg-amber-500 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-[10px] text-slate-300 truncate">{r.task || 'Unnamed Reminder'}</p>
+                        {r.time && <p className="text-[9px] text-amber-500/60 truncate">{r.time}</p>}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteReminder(r._id)}
+                      className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-red-500/10 text-slate-600 hover:text-red-400 rounded transition-all shrink-0"
+                    >
+                      <X size={9} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* User Footer */}
