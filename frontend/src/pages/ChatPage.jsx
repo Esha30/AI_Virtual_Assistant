@@ -25,6 +25,8 @@ const ChatPage = () => {
   const [editingTitle, setEditingTitle] = useState('');
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
+  const [completingTaskIds, setCompletingTaskIds] = useState(new Set());
+  const [toast, setToast] = useState(null); // { message, icon }
   const { user, logout, authenticatedFetch } = useAuth();
 
   const bottomRef = useRef(null);
@@ -72,6 +74,36 @@ const ChatPage = () => {
     }
   }, [activeSessionId, fetchUnifiedData]);
 
+  // ── Auto-expire reminders ─────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!authenticatedFetch || reminders.length === 0) return;
+
+    const checkExpired = async () => {
+      const now = new Date();
+      const expired = reminders.filter(r => {
+        if (!r.scheduled_time) return false;
+        return new Date(r.scheduled_time) <= now;
+      });
+
+      for (const r of expired) {
+        try {
+          await authenticatedFetch(`http://localhost:8000/reminders/${r._id}`, { method: 'DELETE' });
+        } catch (e) { console.error('Auto-expire error', e); }
+      }
+
+      if (expired.length > 0) {
+        fetchUnifiedData();
+        showToast(`⏰ Reminder expired: "${expired[0].task}"`, 'amber');
+      }
+    };
+
+    checkExpired();
+    const interval = setInterval(checkExpired, 60000);
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reminders, authenticatedFetch]);
+
   // ── Speech Recognition ───────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -98,6 +130,11 @@ const ChatPage = () => {
   }, [input]);
 
   // ── Actions ──────────────────────────────────────────────────────────────────
+
+  const showToast = (message, type = 'emerald') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   const toggleRecording = () => {
     if (isRecording) {
@@ -269,29 +306,50 @@ const ChatPage = () => {
   };
 
   const handleToggleTask = async (taskId, completed) => {
-    try {
-      await authenticatedFetch(`http://localhost:8000/tasks/${taskId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ completed: !completed })
-      });
-      fetchUnifiedData();
-    } catch (e) { console.error('Toggle task error', e); }
+    if (!completed) {
+      // Marking as DONE: show strikethrough briefly, then auto-delete
+      setCompletingTaskIds(prev => new Set([...prev, taskId]));
+      try {
+        await authenticatedFetch(`http://localhost:8000/tasks/${taskId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ completed: true })
+        });
+        setTimeout(async () => {
+          try {
+            await authenticatedFetch(`http://localhost:8000/tasks/${taskId}`, { method: 'DELETE' });
+            setTasks(prev => prev.filter(t => t._id !== taskId));
+            setCompletingTaskIds(prev => { const s = new Set(prev); s.delete(taskId); return s; });
+          } catch (e) { console.error('Auto-delete completed task error', e); }
+        }, 1500);
+      } catch (e) {
+        console.error('Toggle task error', e);
+        setCompletingTaskIds(prev => { const s = new Set(prev); s.delete(taskId); return s; });
+      }
+    } else {
+      // Un-marking (already completed but not yet deleted) — just uncheck
+      try {
+        await authenticatedFetch(`http://localhost:8000/tasks/${taskId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ completed: false })
+        });
+        fetchUnifiedData();
+      } catch (e) { console.error('Toggle task error', e); }
+    }
   };
 
   const handleDeleteTask = async (taskId) => {
     try {
       await authenticatedFetch(`http://localhost:8000/tasks/${taskId}`, { method: 'DELETE' });
-      fetchUnifiedData();
+      setTasks(prev => prev.filter(t => t._id !== taskId));
     } catch (e) { console.error('Delete task error', e); }
   };
-
-
 
   const handleDeleteReminder = async (reminderId) => {
     try {
       await authenticatedFetch(`http://localhost:8000/reminders/${reminderId}`, { method: 'DELETE' });
-      fetchUnifiedData();
+      setReminders(prev => prev.filter(r => r._id !== reminderId));
     } catch (e) { console.error('Delete reminder error', e); }
   };
 
@@ -524,27 +582,47 @@ const ChatPage = () => {
               <p className="text-[10px] text-slate-700 px-2 py-1 italic">Ask Aura to add a task</p>
             ) : (
               <div className="space-y-1 max-h-[90px] overflow-y-auto custom-scrollbar pr-0.5">
-                {Array.isArray(tasks) && tasks.map((t) => (
-                  <div key={t._id || Math.random()} className="group flex items-center justify-between px-2 py-1.5 rounded-lg bg-white/[0.02] border border-white/[0.04] hover:border-emerald-500/20 transition-all">
-                    <div className="flex items-center gap-2 overflow-hidden">
-                      <button
-                        onClick={() => handleToggleTask(t._id, t.completed)}
-                        className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors shrink-0 ${t.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-white/10 hover:border-emerald-500/50'}`}
-                      >
-                        {t.completed && <CheckCircle size={8} strokeWidth={3} />}
-                      </button>
-                      <span className={`text-[10px] truncate ${t.completed ? 'text-slate-600 line-through' : 'text-slate-300'}`}>
-                        {t.task || 'Unnamed Task'}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => handleDeleteTask(t._id)}
-                      className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-red-500/10 text-slate-600 hover:text-red-400 rounded transition-all shrink-0"
+                {Array.isArray(tasks) && tasks.map((t) => {
+                  const isCompleting = completingTaskIds.has(t._id);
+                  const isDone = t.completed || isCompleting;
+                  return (
+                    <div
+                      key={t._id || Math.random()}
+                      className={`group flex items-center justify-between px-2 py-1.5 rounded-lg border transition-all duration-300 ${
+                        isDone
+                          ? 'bg-emerald-500/5 border-emerald-500/20 opacity-60'
+                          : 'bg-white/[0.02] border-white/[0.04] hover:border-emerald-500/20'
+                      }`}
                     >
-                      <X size={9} />
-                    </button>
-                  </div>
-                ))}
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <button
+                          onClick={() => handleToggleTask(t._id, t.completed)}
+                          disabled={isCompleting}
+                          className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-all shrink-0 ${
+                            isDone
+                              ? 'bg-emerald-500 border-emerald-500 text-white scale-110'
+                              : 'border-white/10 hover:border-emerald-500/50'
+                          }`}
+                        >
+                          {isDone && <CheckCircle size={8} strokeWidth={3} />}
+                        </button>
+                        <span className={`text-[10px] truncate transition-all duration-300 ${
+                          isDone ? 'text-slate-600 line-through' : 'text-slate-300'
+                        }`}>
+                          {t.task || 'Unnamed Task'}
+                        </span>
+                      </div>
+                      {!isCompleting && (
+                        <button
+                          onClick={() => handleDeleteTask(t._id)}
+                          className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-red-500/10 text-slate-600 hover:text-red-400 rounded transition-all shrink-0"
+                        >
+                          <X size={9} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -808,6 +886,33 @@ const ChatPage = () => {
         </div>
 
       </main>
+
+      {/* ── TOAST NOTIFICATION ── */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            key="toast"
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            className={`fixed bottom-24 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl backdrop-blur-xl border shadow-2xl text-sm font-medium ${
+              toast.type === 'amber'
+                ? 'bg-amber-500/10 border-amber-500/20 text-amber-300'
+                : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+            }`}
+          >
+            <span>{toast.message}</span>
+            <button
+              onClick={() => setToast(null)}
+              className="text-white/30 hover:text-white/70 transition-colors ml-1"
+            >
+              <X size={12} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 };
