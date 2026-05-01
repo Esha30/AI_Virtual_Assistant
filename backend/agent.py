@@ -101,9 +101,9 @@ async def process_user_message(user_message: str, history_docs: list, db=None, u
     if gemini_client:
         # Prioritize standard models with high free capacity
         AVAILABLE_MODELS = [
-            'gemini-2.0-flash',
             'gemini-1.5-flash',
-            'gemini-1.5-flash-8b'
+            'gemini-1.5-flash-8b',
+            'gemini-2.0-flash'
         ]
         gemini_tools = [add_task_tool, list_tasks_tool, set_reminder_tool, play_video_tool, get_status_tool]
         
@@ -163,7 +163,9 @@ async def process_user_message(user_message: str, history_docs: list, db=None, u
                 
             except Exception as e:
                 err_msg = str(e).lower()
-                print(f"Gemini error with model {model_name}: {e}")
+                print(f"DEBUG: Gemini error with model {model_name}: {e}")
+                import traceback
+                traceback.print_exc()
                 # If it's a model-specific error or quota, try next model
                 if any(term in err_msg for term in ["429", "quota", "503", "demand", "404", "not found", "400"]):
                     continue
@@ -281,14 +283,14 @@ async def process_user_message(user_message: str, history_docs: list, db=None, u
                     if doc.get("bot_response"):
                         messages_pollin.append({"role": "assistant", "content": doc["bot_response"]})
                 messages_pollin.append({"role": "user", "content": user_message})
-                for _ in range(3):
                     response = requests.post(
                         "https://text.pollinations.ai/openai/",
-                        json={"model": "openai", "messages": messages_pollin, "tools": openai_tools},
+                        json={"model": "openai", "messages": messages_pollin},
                         timeout=30.0
                     )
                     if response.status_code != 200:
-                        return f"Processing complete. (Status: {response.status_code})"
+                        print(f"DEBUG: Pollinations failed with status {response.status_code}: {response.text}")
+                        return "I'm having trouble processing that request right now. Please try again in a moment."
                     
                     msg = response.json()["choices"][0]["message"]
                     if not msg.get("tool_calls"):
