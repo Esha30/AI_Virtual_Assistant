@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, Depends, Request, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
@@ -18,8 +19,8 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
+        os.getenv("FRONTEND_URL", "*").rstrip("/"),
+        os.getenv("FRONTEND_URL", "*").rstrip("/") + "/"
     ],
     allow_credentials=True,
     allow_methods=["*"],

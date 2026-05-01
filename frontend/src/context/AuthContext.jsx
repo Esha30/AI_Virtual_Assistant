@@ -19,7 +19,7 @@ export const AuthProvider = ({ children }) => {
 
     const fetchUser = async () => {
         try {
-            const res = await fetch('http://localhost:8000/me', {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/me`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     const login = async (email, password) => {
-        const res = await fetch('http://localhost:8000/login', {
+        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password })
@@ -54,7 +54,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     const signup = async (email, password) => {
-        const res = await fetch('http://localhost:8000/signup', {
+        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/signup`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password })

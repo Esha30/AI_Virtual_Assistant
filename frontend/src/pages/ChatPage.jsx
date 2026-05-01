@@ -38,10 +38,11 @@ const ChatPage = () => {
   const fetchUnifiedData = useCallback(async (sessionId = null) => {
     if (!authenticatedFetch) return;
     try {
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
       const sid = sessionId || activeSessionId;
       const url = sid 
-        ? `http://localhost:8000/unified-context?session_id=${sid}`
-        : `http://localhost:8000/unified-context`;
+        ? `${baseUrl}/unified-context?session_id=${sid}`
+        : `${baseUrl}/unified-context`;
         
       const res = await authenticatedFetch(url);
       const data = await res.json();
@@ -88,7 +89,7 @@ const ChatPage = () => {
 
       for (const r of expired) {
         try {
-          await authenticatedFetch(`http://localhost:8000/reminders/${r._id}`, { method: 'DELETE' });
+          await authenticatedFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/reminders/${r._id}`, { method: 'DELETE' });
         } catch (e) { console.error('Auto-expire error', e); }
       }
 
@@ -164,7 +165,7 @@ const ChatPage = () => {
   const deleteSession = async (e, sessionId) => {
     e.stopPropagation();
     try {
-      await authenticatedFetch(`http://localhost:8000/sessions/${sessionId}`, { method: 'DELETE' });
+      await authenticatedFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/sessions/${sessionId}`, { method: 'DELETE' });
       setSessions(prev => prev.filter(s => s._id !== sessionId));
       if (activeSessionId === sessionId) {
         setActiveSessionId(null);
@@ -182,7 +183,7 @@ const ChatPage = () => {
   const saveRenameSession = async (sessionId) => {
     if (!editingTitle.trim()) return;
     try {
-      await authenticatedFetch(`http://localhost:8000/sessions/${sessionId}`, {
+      await authenticatedFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/sessions/${sessionId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: editingTitle.trim() })
@@ -195,7 +196,7 @@ const ChatPage = () => {
   const clearAllSessions = async () => {
     if (!window.confirm('This will permanently delete ALL conversations. Proceed?')) return;
     try {
-      await authenticatedFetch('http://localhost:8000/sessions', { method: 'DELETE' });
+      await authenticatedFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/sessions`, { method: 'DELETE' });
       setSessions([]);
       setActiveSessionId(null);
       setMessages([]);
@@ -223,7 +224,7 @@ const ChatPage = () => {
       const interactionId = lastBotMsg.id;
       if (interactionId) {
         try {
-          await authenticatedFetch(`http://localhost:8000/history/${interactionId}`, {
+          await authenticatedFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/history/${interactionId}`, {
             method: 'DELETE'
           });
         } catch (e) {
@@ -252,7 +253,7 @@ const ChatPage = () => {
     setIsTyping(true);
 
     try {
-      const res = await authenticatedFetch('http://localhost:8000/chat', {
+      const res = await authenticatedFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -310,14 +311,14 @@ const ChatPage = () => {
       // Marking as DONE: show strikethrough briefly, then auto-delete
       setCompletingTaskIds(prev => new Set([...prev, taskId]));
       try {
-        await authenticatedFetch(`http://localhost:8000/tasks/${taskId}`, {
+        await authenticatedFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/tasks/${taskId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ completed: true })
         });
         setTimeout(async () => {
           try {
-            await authenticatedFetch(`http://localhost:8000/tasks/${taskId}`, { method: 'DELETE' });
+            await authenticatedFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/tasks/${taskId}`, { method: 'DELETE' });
             setTasks(prev => prev.filter(t => t._id !== taskId));
             setCompletingTaskIds(prev => { const s = new Set(prev); s.delete(taskId); return s; });
           } catch (e) { console.error('Auto-delete completed task error', e); }
@@ -329,7 +330,7 @@ const ChatPage = () => {
     } else {
       // Un-marking (already completed but not yet deleted) — just uncheck
       try {
-        await authenticatedFetch(`http://localhost:8000/tasks/${taskId}`, {
+        await authenticatedFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/tasks/${taskId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ completed: false })
@@ -341,14 +342,14 @@ const ChatPage = () => {
 
   const handleDeleteTask = async (taskId) => {
     try {
-      await authenticatedFetch(`http://localhost:8000/tasks/${taskId}`, { method: 'DELETE' });
+      await authenticatedFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/tasks/${taskId}`, { method: 'DELETE' });
       setTasks(prev => prev.filter(t => t._id !== taskId));
     } catch (e) { console.error('Delete task error', e); }
   };
 
   const handleDeleteReminder = async (reminderId) => {
     try {
-      await authenticatedFetch(`http://localhost:8000/reminders/${reminderId}`, { method: 'DELETE' });
+      await authenticatedFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/reminders/${reminderId}`, { method: 'DELETE' });
       setReminders(prev => prev.filter(r => r._id !== reminderId));
     } catch (e) { console.error('Delete reminder error', e); }
   };
