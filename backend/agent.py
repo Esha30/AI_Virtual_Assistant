@@ -101,8 +101,9 @@ async def process_user_message(user_message: str, history_docs: list, db=None, u
     if gemini_client:
         # Prioritize standard models with high free capacity
         AVAILABLE_MODELS = [
-            'gemini-2.5-flash',
-            'gemini-2.5-flash-lite'
+            'gemini-2.0-flash',
+            'gemini-1.5-flash',
+            'gemini-1.5-flash-8b'
         ]
         gemini_tools = [add_task_tool, list_tasks_tool, set_reminder_tool, play_video_tool, get_status_tool]
         

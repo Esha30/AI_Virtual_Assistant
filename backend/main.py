@@ -14,14 +14,32 @@ from typing import List, Optional
 from bson import ObjectId
 from datetime import datetime
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 app = FastAPI()
+
+# Define allowed origins
+origins = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+    "https://ai-virtual-assistant-gold.vercel.app",
+]
+
+frontend_url = os.getenv("FRONTEND_URL")
+if frontend_url:
+    url = frontend_url.rstrip("/")
+    if url not in origins:
+        origins.append(url)
+    if f"{url}/" not in origins:
+        origins.append(f"{url}/")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        os.getenv("FRONTEND_URL", "*").rstrip("/"),
-        os.getenv("FRONTEND_URL", "*").rstrip("/") + "/"
-    ],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

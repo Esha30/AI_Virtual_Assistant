@@ -19,7 +19,8 @@ export const AuthProvider = ({ children }) => {
 
     const fetchUser = async () => {
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/me`, {
+            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+            const res = await fetch(`${apiUrl}/me`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -28,10 +29,11 @@ export const AuthProvider = ({ children }) => {
                 const data = await res.json();
                 setUser(data);
             } else {
+                console.warn('User session expired or invalid');
                 logout();
             }
         } catch (error) {
-            console.error('Failed to fetch user', error);
+            console.error('Failed to fetch user:', error);
             logout();
         } finally {
             setLoading(false);
@@ -39,31 +41,45 @@ export const AuthProvider = ({ children }) => {
     };
 
     const login = async (email, password) => {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
-        });
-        const data = await res.json();
-        if (res.ok) {
-            localStorage.setItem('token', data.access_token);
-            setToken(data.access_token);
-            return { success: true };
+        try {
+            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+            const res = await fetch(`${apiUrl}/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            
+            const data = await res.json();
+            if (res.ok) {
+                localStorage.setItem('token', data.access_token);
+                setToken(data.access_token);
+                return { success: true };
+            }
+            return { success: false, message: data.detail || 'Login failed' };
+        } catch (error) {
+            console.error('Login error:', error);
+            return { success: false, message: 'Server connection failed. Please try again later.' };
         }
-        return { success: false, message: data.detail || 'Login failed' };
     };
 
     const signup = async (email, password) => {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/signup`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
-        });
-        const data = await res.json();
-        if (res.ok) {
-            return { success: true };
+        try {
+            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+            const res = await fetch(`${apiUrl}/signup`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            
+            const data = await res.json();
+            if (res.ok) {
+                return { success: true };
+            }
+            return { success: false, message: data.detail || 'Signup failed' };
+        } catch (error) {
+            console.error('Signup error:', error);
+            return { success: false, message: 'Server connection failed. Please try again later.' };
         }
-        return { success: false, message: data.detail || 'Signup failed' };
     };
 
     const logout = () => {
