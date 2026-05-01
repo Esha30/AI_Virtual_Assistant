@@ -283,35 +283,35 @@ async def process_user_message(user_message: str, history_docs: list, db=None, u
                     if doc.get("bot_response"):
                         messages_pollin.append({"role": "assistant", "content": doc["bot_response"]})
                 messages_pollin.append({"role": "user", "content": user_message})
-                    response = requests.post(
-                        "https://text.pollinations.ai/openai/",
-                        json={"model": "openai", "messages": messages_pollin},
-                        timeout=30.0
-                    )
-                    if response.status_code != 200:
-                        print(f"DEBUG: Pollinations failed with status {response.status_code}: {response.text}")
-                        return "I'm having trouble processing that request right now. Please try again in a moment."
+                response = requests.post(
+                    "https://text.pollinations.ai/openai/",
+                    json={"model": "openai", "messages": messages_pollin},
+                    timeout=30.0
+                )
+                if response.status_code != 200:
+                    print(f"DEBUG: Pollinations failed with status {response.status_code}: {response.text}")
+                    return "I'm having trouble processing that request right now. Please try again in a moment."
+                
+                msg = response.json()["choices"][0]["message"]
+                if not msg.get("tool_calls"):
+                    return msg.get("content") or "Protocols updated."
+                
+                messages_pollin.append(msg)
+                for tool_call in msg["tool_calls"]:
+                    fn_name = tool_call["function"]["name"]
+                    try:
+                        fn_args = json.loads(tool_call["function"]["arguments"])
+                    except Exception:
+                        fn_args = {}
+                    fn = tools_map.get(fn_name)
+                    result = await fn(**fn_args) if fn else f"Error: Tool {fn_name} not found."
                     
-                    msg = response.json()["choices"][0]["message"]
-                    if not msg.get("tool_calls"):
-                        return msg.get("content") or "Protocols updated."
-                    
-                    messages_pollin.append(msg)
-                    for tool_call in msg["tool_calls"]:
-                        fn_name = tool_call["function"]["name"]
-                        try:
-                            fn_args = json.loads(tool_call["function"]["arguments"])
-                        except Exception:
-                            fn_args = {}
-                        fn = tools_map.get(fn_name)
-                        result = await fn(**fn_args) if fn else f"Error: Tool {fn_name} not found."
-                        
-                        messages_pollin.append({
-                            "role": "tool",
-                            "tool_call_id": tool_call["id"],
-                            "name": fn_name,
-                            "content": result
-                        })
+                    messages_pollin.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call["id"],
+                        "name": fn_name,
+                        "content": result
+                    })
             except Exception as e2:
                 print(f"Pollinations fallback also failed: {e2}")
                 return "The servers are currently experiencing high demand. Please try again in just a moment!"
