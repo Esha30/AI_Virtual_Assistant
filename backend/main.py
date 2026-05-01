@@ -69,22 +69,43 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db = Depends(get
     return user_dict
 
 @app.get("/")
-def read_root():
-    return {"message": "AI Virtual Assistant API is running."}
+async def read_root(db = Depends(get_db)):
+    try:
+        # Check if we can ping the database
+        await db.command("ping")
+        db_status = "connected"
+    except Exception as e:
+        db_status = f"error: {str(e)}"
+    
+    return {
+        "message": "AI Virtual Assistant API is running.",
+        "database": db_status,
+        "frontend_url": os.getenv("FRONTEND_URL", "not set")
+    }
 
 @app.post("/signup")
 async def signup(user: UserCreate, db = Depends(get_db)):
-    existing_user = await db.users.find_one({"email": user.email})
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    
-    hashed_password = get_password_hash(user.password)
-    user_data = {
-        "email": user.email,
-        "hashed_password": hashed_password
-    }
-    result = await db.users.insert_one(user_data)
-    return {"message": "User created successfully", "id": str(result.inserted_id)}
+    try:
+        print(f"Signup attempt for email: {user.email}")
+        existing_user = await db.users.find_one({"email": user.email})
+        if existing_user:
+            print(f"Signup failed: Email {user.email} already registered")
+            raise HTTPException(status_code=400, detail="Email already registered")
+        
+        hashed_password = get_password_hash(user.password)
+        user_data = {
+            "email": user.email,
+            "hashed_password": hashed_password,
+            "created_at": datetime.utcnow()
+        }
+        result = await db.users.insert_one(user_data)
+        print(f"User created successfully: {user.email}")
+        return {"message": "User created successfully", "id": str(result.inserted_id)}
+    except Exception as e:
+        print(f"CRITICAL ERROR during signup: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 @app.post("/login")
 async def login(user_data: UserLogin, db = Depends(get_db)):
