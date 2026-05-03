@@ -80,6 +80,7 @@ const ChatPage = () => {
   useEffect(() => {
     if (!authenticatedFetch || reminders.length === 0) return;
 
+    /* 
     const checkExpired = async () => {
       const now = new Date();
       const expired = reminders.filter(r => {
@@ -102,6 +103,7 @@ const ChatPage = () => {
     checkExpired();
     const interval = setInterval(checkExpired, 60000);
     return () => clearInterval(interval);
+    */
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reminders, authenticatedFetch]);
 

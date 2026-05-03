@@ -30,7 +30,12 @@ def is_quota_error(exception):
 
 async def process_user_message(user_message: str, history_docs: list, db=None, user_id=None, user_local_time: str = None) -> str:
     current_time_str = user_local_time or datetime.utcnow().isoformat()
-    system_instruction = f"System Time: {current_time_str}. You are Aura, an elite AI assistant. Use tools for life management. Professional and concise style."
+    system_instruction = f"""System Time: {current_time_str}. 
+You are Aura, an elite AI life management assistant. 
+CRITICAL: You MUST use the provided tools for adding tasks, setting reminders, or listing status. 
+Never tell the user you have done something (like adding a task or setting a reminder) unless you have successfully called the corresponding tool.
+If a user specifies a time like '3pm' and it is currently past that time (e.g., it's 8pm), assume they mean 3pm the NEXT day unless they specify otherwise.
+Professional, concise, and proactive style."""
 
     # ── TOOLS CONFIGURATION ──────────────────────────────────────────────────
     async def add_task_tool(task: str) -> str:
@@ -119,49 +124,22 @@ async def process_user_message(user_message: str, history_docs: list, db=None, u
 
         config = types.GenerateContentConfig(
             tools=gemini_tools,
-            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=False),
             system_instruction=system_instruction
         )
 
         for model_name in AVAILABLE_MODELS:
             try:
-                current_contents = contents + [types.Content(role="user", parts=[types.Part.from_text(text=user_message)])]
-                final_response = None
-                for _ in range(3):
-                    @retry(
-                        stop=stop_after_attempt(3),
-                        wait=wait_exponential(multiplier=1, min=2, max=6),
-                        retry=retry_if_exception(is_quota_error),
-                        reraise=True
-                    )
-                    async def call_gemini():
-                        return await gemini_client.aio.models.generate_content(
-                            model=model_name,
-                            contents=current_contents,
-                            config=config
-                        )
-
-                    response = await call_gemini()
-                    
-                    if not response.function_calls:
-                        final_response = response.text or "Protocols updated."
-                        break
-                    
-                    current_contents.append(response.candidates[0].content)
-                    tool_parts = []
-                    for tool_call in response.function_calls:
-                        tool_name = tool_call.name
-                        tool_args = tool_call.args
-                        tool_fn = tools_map.get(tool_name)
-                        if tool_fn:
-                            result = await tool_fn(**tool_args)
-                        else:
-                            result = f"Error: Tool {tool_name} not found."
-                        tool_parts.append(types.Part.from_function_response(name=tool_name, response={"result": result}))
-                    current_contents.append(types.Content(role="tool", parts=tool_parts))
+                # Use automatic function calling
+                response = await gemini_client.aio.models.generate_content(
+                    model=model_name,
+                    contents=contents + [types.Content(role="user", parts=[types.Part.from_text(text=user_message)])],
+                    config=config
+                )
                 
-                if final_response:
-                    return final_response
+                if response.text:
+                    return response.text
+                return "Protocols updated."
                 
             except Exception as e:
                 err_msg = str(e).lower()
