@@ -27,6 +27,7 @@ const ChatPage = () => {
   const [copiedId, setCopiedId] = useState(null);
   const [completingTaskIds, setCompletingTaskIds] = useState(new Set());
   const [toast, setToast] = useState(null); // { message, icon }
+  const [confirmDialog, setConfirmDialog] = useState(null); // { title, message, onConfirm }
   const { user, logout, authenticatedFetch } = useAuth();
 
   const bottomRef = useRef(null);
@@ -147,7 +148,7 @@ const ChatPage = () => {
         recognitionRef.current.start();
         setIsRecording(true);
       } else {
-        alert('Speech Recognition not supported.');
+        showToast('Speech Recognition not supported in this browser.', 'amber');
       }
     }
   };
@@ -196,13 +197,22 @@ const ChatPage = () => {
   };
 
   const clearAllSessions = async () => {
-    if (!window.confirm('This will permanently delete ALL conversations. Proceed?')) return;
-    try {
-      await authenticatedFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/sessions`, { method: 'DELETE' });
-      setSessions([]);
-      setActiveSessionId(null);
-      setMessages([]);
-    } catch (e) { console.error('Clear sessions error', e); }
+    setConfirmDialog({
+      title: 'Clear All History',
+      message: 'This will permanently delete ALL conversations and data streams. This action cannot be undone.',
+      onConfirm: async () => {
+        try {
+          await authenticatedFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/sessions`, { method: 'DELETE' });
+          setSessions([]);
+          setActiveSessionId(null);
+          setMessages([]);
+          showToast('History cleared successfully', 'emerald');
+        } catch (e) { 
+          console.error('Clear sessions error', e);
+          showToast('Failed to clear history', 'amber');
+        }
+      }
+    });
   };
 
   const copyToClipboard = (text, id) => {
@@ -913,6 +923,57 @@ const ChatPage = () => {
               <X size={12} />
             </button>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── CONFIRMATION MODAL ── */}
+      <AnimatePresence>
+        {confirmDialog && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              onClick={() => setConfirmDialog(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="relative w-full max-w-sm bg-[#131316] border border-white/10 rounded-3xl p-8 shadow-2xl overflow-hidden"
+            >
+              {/* Background accent */}
+              <div className="absolute -top-24 -right-24 w-48 h-48 bg-red-500/10 blur-3xl rounded-full pointer-events-none" />
+              
+              <div className="relative z-10">
+                <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center mb-6 border border-red-500/20">
+                  <Trash2 className="text-red-400" size={24} />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">{confirmDialog.title}</h3>
+                <p className="text-slate-400 text-sm leading-relaxed mb-8">
+                  {confirmDialog.message}
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setConfirmDialog(null)}
+                    className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-sm font-semibold transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      confirmDialog.onConfirm();
+                      setConfirmDialog(null);
+                    }}
+                    className="flex-1 py-3 rounded-xl bg-red-500 hover:bg-red-400 text-white text-sm font-bold transition-all shadow-lg shadow-red-500/20"
+                  >
+                    Proceed
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
