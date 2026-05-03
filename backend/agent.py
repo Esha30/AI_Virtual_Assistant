@@ -167,6 +167,7 @@ Professional, concise, and proactive style."""
         
         gemini_failed = True
     else:
+        print("DEBUG: GEMINI_API_KEY is missing. Skipping Gemini.")
         gemini_failed = True
 
     # ── FALLBACK ENGINE: OPENAI ───────────────────────────────────────────────
@@ -310,4 +311,7 @@ Professional, concise, and proactive style."""
                 return "The servers are currently experiencing high demand. Please try again in just a moment!"
 
     # ── FINAL SAFETY FALLBACK ────────────────────────────────────────────────
-    return "I'm currently unable to process your request due to high server load. Please check your internet connection or try again in a few minutes."
+    if not gemini_client and not openai_client:
+        return "System configuration error: AI API Keys (GEMINI_API_KEY or OPENAI_API_KEY) are missing in the backend environment. Please set them to enable Aura's intelligence."
+        
+    return "I'm currently unable to process your request due to high server load or quota limits. Please try again in a few minutes."
