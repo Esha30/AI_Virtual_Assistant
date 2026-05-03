@@ -298,19 +298,19 @@ async def get_unified_context(
     user_id = current_user["_id"]
     
     # 1. Fetch sessions
-    sessions_cursor = db.sessions.find({"user_id": user_id}).sort("last_updated", -1)
+    sessions_cursor = db.sessions.find({"user_id": str(user_id)}).sort("last_updated", -1)
     sessions = await sessions_cursor.to_list(length=100)
     for s in sessions:
         s["_id"] = str(s["_id"])
         
     # 2. Fetch tasks
-    tasks_cursor = db.tasks.find({"user_id": user_id, "completed": False}).sort("created_at", -1)
+    tasks_cursor = db.tasks.find({"user_id": str(user_id), "completed": False}).sort("created_at", -1)
     tasks = await tasks_cursor.to_list(length=50)
     for t in tasks:
         t["_id"] = str(t["_id"])
         
     # 3. Fetch reminders
-    reminders_cursor = db.reminders.find({"user_id": user_id, "completed": False}).sort("created_at", -1)
+    reminders_cursor = db.reminders.find({"user_id": str(user_id), "completed": False}).sort("created_at", -1)
     reminders = await reminders_cursor.to_list(length=50)
     for r in reminders:
         r["_id"] = str(r["_id"])
@@ -337,7 +337,7 @@ async def get_unified_context(
 @app.get("/tasks")
 async def get_tasks(current_user = Depends(get_current_user), db = Depends(get_db)):
     user_id = current_user["_id"]
-    cursor = db.tasks.find({"user_id": user_id}).sort("created_at", -1)
+    cursor = db.tasks.find({"user_id": str(user_id), "completed": False}).sort("created_at", -1)
     tasks = await cursor.to_list(length=100)
     for t in tasks:
         t["_id"] = str(t["_id"])
@@ -346,7 +346,7 @@ async def get_tasks(current_user = Depends(get_current_user), db = Depends(get_d
 @app.get("/reminders")
 async def get_reminders(current_user = Depends(get_current_user), db = Depends(get_db)):
     user_id = current_user["_id"]
-    cursor = db.reminders.find({"user_id": user_id}).sort("created_at", -1)
+    cursor = db.reminders.find({"user_id": str(user_id), "completed": False}).sort("created_at", -1)
     reminders = await cursor.to_list(length=100)
     for r in reminders:
         r["_id"] = str(r["_id"])

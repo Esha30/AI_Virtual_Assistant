@@ -258,7 +258,7 @@ const ChatPage = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userText,
-          local_time: new Date().toLocaleString(),
+          local_time: new Date().toISOString(),
           session_id: activeSessionId
         })
       });

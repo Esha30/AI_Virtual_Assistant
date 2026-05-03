@@ -37,7 +37,7 @@ async def process_user_message(user_message: str, history_docs: list, db=None, u
         """Adds a new task to the user's to-do list."""
         if db is not None and user_id:
             await db.tasks.insert_one({
-                "task": task, "user_id": user_id, "completed": False, "created_at": datetime.utcnow()
+                "task": task, "user_id": str(user_id), "completed": False, "created_at": datetime.utcnow()
             })
             return f"Task added: {task}"
         return "DB Error."
@@ -51,11 +51,13 @@ async def process_user_message(user_message: str, history_docs: list, db=None, u
         return "DB Error."
 
     async def set_reminder_tool(task: str, time: str, structured_time: str) -> str:
-        """Sets a reminder with a specific time."""
+        """Sets a reminder with a specific task and time. 
+        'time' is human readable (e.g., '3pm'). 
+        'structured_time' must be a valid ISO 8601 string representing the exact date and time."""
         if db is not None and user_id:
             await db.reminders.insert_one({
                 "task": task, "time": time, "scheduled_time": structured_time,
-                "user_id": user_id, "completed": False, "created_at": datetime.utcnow()
+                "user_id": str(user_id), "completed": False, "created_at": datetime.utcnow()
             })
             return f"Reminder set for {task} at {time}."
         return "DB Error."
@@ -156,7 +158,7 @@ async def process_user_message(user_message: str, history_docs: list, db=None, u
                         else:
                             result = f"Error: Tool {tool_name} not found."
                         tool_parts.append(types.Part.from_function_response(name=tool_name, response={"result": result}))
-                    current_contents.append(types.Content(role="function", parts=tool_parts))
+                    current_contents.append(types.Content(role="tool", parts=tool_parts))
                 
                 if final_response:
                     return final_response
