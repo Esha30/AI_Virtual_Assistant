@@ -296,6 +296,7 @@ async def get_unified_context(
     db = Depends(get_db)
 ):
     user_id = current_user["_id"]
+    print(f"DEBUG: get_unified_context called for user_id='{user_id}'")
     
     # 1. Fetch sessions
     sessions_cursor = db.sessions.find({"user_id": str(user_id)}).sort("last_updated", -1)
@@ -315,6 +316,8 @@ async def get_unified_context(
     for r in reminders:
         r["_id"] = str(r["_id"])
         
+    print(f"DEBUG: Found {len(sessions)} sessions, {len(tasks)} tasks, {len(reminders)} reminders.")
+    
     # 4. Fetch history if session_id provided
     history = []
     if session_id:

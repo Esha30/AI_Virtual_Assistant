@@ -40,11 +40,18 @@ Professional, concise, and proactive style."""
     # ── TOOLS CONFIGURATION ──────────────────────────────────────────────────
     async def add_task_tool(task: str) -> str:
         """Adds a new task to the user's to-do list."""
+        print(f"DEBUG: add_task_tool called for task='{task}' and user_id='{user_id}'")
         if db is not None and user_id:
-            await db.tasks.insert_one({
-                "task": task, "user_id": str(user_id), "completed": False, "created_at": datetime.utcnow()
-            })
-            return f"Task added: {task}"
+            try:
+                res = await db.tasks.insert_one({
+                    "task": task, "user_id": str(user_id), "completed": False, "created_at": datetime.utcnow()
+                })
+                print(f"DEBUG: Task inserted successfully. ID: {res.inserted_id}")
+                return f"Task added: {task}"
+            except Exception as e:
+                print(f"DEBUG: Error inserting task: {e}")
+                return f"Database Error: {e}"
+        print("DEBUG: Database or user_id missing in tool.")
         return "DB Error."
 
     async def list_tasks_tool() -> str:
@@ -59,12 +66,18 @@ Professional, concise, and proactive style."""
         """Sets a reminder with a specific task and time. 
         'time' is human readable (e.g., '3pm'). 
         'structured_time' must be a valid ISO 8601 string representing the exact date and time."""
+        print(f"DEBUG: set_reminder_tool called for task='{task}', time='{time}', user_id='{user_id}'")
         if db is not None and user_id:
-            await db.reminders.insert_one({
-                "task": task, "time": time, "scheduled_time": structured_time,
-                "user_id": str(user_id), "completed": False, "created_at": datetime.utcnow()
-            })
-            return f"Reminder set for {task} at {time}."
+            try:
+                res = await db.reminders.insert_one({
+                    "task": task, "time": time, "scheduled_time": structured_time,
+                    "user_id": str(user_id), "completed": False, "created_at": datetime.utcnow()
+                })
+                print(f"DEBUG: Reminder inserted successfully. ID: {res.inserted_id}")
+                return f"Reminder set for {task} at {time}."
+            except Exception as e:
+                print(f"DEBUG: Error inserting reminder: {e}")
+                return f"Database Error: {e}"
         return "DB Error."
 
     async def play_video_tool(query: str) -> str:
