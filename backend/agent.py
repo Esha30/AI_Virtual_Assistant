@@ -68,7 +68,7 @@ Professional, concise, and proactive style."""
         import httpx
         import re
         
-        system_instruction_proxy = f"{system_instruction}\n\nCRITICAL RULE: You MUST include a tag for EVERY action. \n- To add a task: [ADD_TASK: Task Name]\n- To set a reminder: [SET_REMINDER: Name | Time | ISO]\n\nIf the user asks for MULTIPLE actions (e.g. a task AND a reminder), you MUST output MULTIPLE tags in your response. DO NOT FORGET ANY TAGS."
+        system_instruction_proxy = f"{system_instruction}\n\nCRITICAL RULE: You MUST include a tag for EVERY action requested. \n- To add a task, use EXACTLY this format: [ADD_TASK: <insert actual task name here>]\n- To set a reminder, use EXACTLY this format: [SET_REMINDER: <insert actual name here> | <insert time here> | <insert ISO date here>]\n\nDo NOT output literal 'Task Name', replace it with the real task! If the user asks for MULTIPLE actions, output MULTIPLE tags."
         
         proxy_messages = [{"role": "system", "content": system_instruction_proxy}]
         for doc in history_docs[-5:]:
