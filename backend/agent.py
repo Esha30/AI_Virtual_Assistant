@@ -107,7 +107,19 @@ Professional, concise, and proactive style."""
                 for pattern in patterns_to_remove:
                     text = re.sub(pattern, "", text, flags=re.IGNORECASE | re.DOTALL).strip()
                 
-                # Intent Parsing (Support Multiple)
+                # ── FUZZY INTENT PARSER (Backup Safety Net) ──────────────
+                # Catch cases where AI says "Reminder set for X at Y" without brackets
+                if "Reminder set for" in text and "[" not in text:
+                    fuzzy_rem = re.search(r"Reminder set for \"(.*?)\" at (.*?) on (.*)", text)
+                    if fuzzy_rem:
+                        await set_reminder_tool(fuzzy_rem.group(1), fuzzy_rem.group(2), fuzzy_rem.group(3))
+                
+                if "Task" in text and "added" in text and "[" not in text:
+                    fuzzy_task = re.search(r"Task \"(.*?)\" added", text)
+                    if fuzzy_task:
+                        await add_task_tool(fuzzy_task.group(1))
+
+                # ── PRIMARY INTENT PARSING (Support Multiple) ───────────
                 for match in re.finditer(r"\[ADD_TASK:\s*(.*?)\]", text):
                     await add_task_tool(match.group(1))
                 
