@@ -139,9 +139,10 @@ Professional, concise, and proactive style."""
                     if fuzzy_task:
                         await add_task_tool(fuzzy_task.group(1))
 
-                # Fuzzy trigger for GET_STATUS
+                # Fuzzy trigger for GET_STATUS — only for very explicit status requests
                 is_status_request = False
-                if any(phrase in text.lower() for phrase in ["list_status", "status tool", "list status", "list of their reminders", "tasks:", "reminders:", "tasks and reminders"]):
+                explicit_status_phrases = ["show me my status", "my current status", "list my tasks", "list my reminders", "what are my tasks", "what are my reminders"]
+                if any(phrase in user_message.lower() for phrase in explicit_status_phrases):
                     is_status_request = True
 
                 # ── PRIMARY INTENT PARSING (Support Multiple & Deduplicate) ───────────
