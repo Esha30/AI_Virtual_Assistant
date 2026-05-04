@@ -135,23 +135,35 @@ Professional, concise, and proactive style."""
                 if any(phrase in text.lower() for phrase in ["list_status", "status tool", "list status", "list of their reminders", "tasks:", "reminders:", "tasks and reminders"]):
                     is_status_request = True
 
-                # ── PRIMARY INTENT PARSING (Support Multiple) ───────────
+                # ── PRIMARY INTENT PARSING (Support Multiple & Deduplicate) ───────────
+                seen_tasks = set()
                 added_tasks = []
                 for match in re.finditer(r"\[ADD_TASK:\s*(.*?)\]", text):
-                    await add_task_tool(match.group(1))
-                    added_tasks.append(match.group(1))
+                    t_name = match.group(1).strip()
+                    if t_name and t_name not in ["<insert actual task name here>", "Task Name"]:
+                        if t_name not in seen_tasks:
+                            await add_task_tool(t_name)
+                            added_tasks.append(t_name)
+                            seen_tasks.add(t_name)
                 
+                seen_rems = set()
                 added_rems = []
                 for match in re.finditer(r"\[SET_REMINDER:\s*(.*?)\|\s*(.*?)\|\s*(.*?)\]", text):
-                    await set_reminder_tool(match.group(1), match.group(2), match.group(3))
-                    added_rems.append(f"'{match.group(1)}' at {match.group(2)}")
+                    r_name = match.group(1).strip()
+                    r_time = match.group(2).strip()
+                    r_iso = match.group(3).strip()
+                    if r_name and r_name not in ["<insert actual name here>", "Name"]:
+                        unique_key = f"{r_name}-{r_time}"
+                        if unique_key not in seen_rems:
+                            await set_reminder_tool(r_name, r_time, r_iso)
+                            added_rems.append(f"'{r_name}' at {r_time}")
+                            seen_rems.add(unique_key)
                 
                 if "[GET_STATUS]" in text or is_status_request:
                     # Bypass all AI text completely for status checks
                     return await get_status_tool()
                 
-                # If any action was taken, completely ignore the AI's generated text (which might contain reasoning)
-                # and return a clean, hardcoded success message.
+                # If any action was taken, completely ignore the AI's generated text
                 if added_tasks or added_rems:
                     resp_parts = []
                     if added_tasks:
