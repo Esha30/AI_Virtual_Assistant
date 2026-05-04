@@ -69,12 +69,18 @@ Professional, concise, and proactive style."""
         import re
         
         system_instruction_proxy = system_instruction + """
-        To use tools, you MUST include these tags:
-        - [ADD_TASK: Task description]
-        - [SET_REMINDER: Task description | Time | ISO Time]
-        - [GET_STATUS]
+        STRICT RULES:
+        1. To add a task, you MUST include: [ADD_TASK: Task name]
+        2. To set a reminder, you MUST include: [SET_REMINDER: Task name | Time | ISO Time]
+        3. To get status, you MUST include: [GET_STATUS]
+        
+        ONLY output plain text. Do not output JSON.
         """
         
+        proxy_messages = [{"role": "system", "content": system_instruction_proxy}]
+        # ... (rest of message prep)
+        
+        # (Self-correction: I'll just write the whole block to be safe)
         proxy_messages = [{"role": "system", "content": system_instruction_proxy}]
         for doc in history_docs[-5:]:
             if doc.get("user_message"):
@@ -92,6 +98,13 @@ Professional, concise, and proactive style."""
             
             if resp.status_code == 200:
                 text = resp.text or ""
+                
+                # Cleanup JSON if the AI returned a raw JSON string
+                if text.strip().startswith("{") and "content" in text:
+                    try:
+                        data = json.loads(text)
+                        text = data.get("content", text)
+                    except: pass
                 
                 # Intent Parsing
                 task_match = re.search(r"\[ADD_TASK:\s*(.*?)\]", text)
