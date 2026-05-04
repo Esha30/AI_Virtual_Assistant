@@ -90,11 +90,11 @@ Professional, concise, and proactive style."""
         proxy_messages.append({"role": "user", "content": user_message})
 
         async with httpx.AsyncClient() as client:
+            # Simplest possible call to Pollinations
             resp = await client.post(
                 "https://text.pollinations.ai/",
                 json={
                     "messages": proxy_messages,
-                    "model": "searchgpt", # More stable for standard chat
                     "seed": 42
                 },
                 timeout=30.0
@@ -103,11 +103,10 @@ Professional, concise, and proactive style."""
             if resp.status_code == 200:
                 text = resp.text or ""
                 
-                # Cleanup JSON / Reasoning
+                # Robust extraction
                 if text.strip().startswith("{"):
                     try:
                         data = json.loads(text)
-                        # Extract content, reasoning, or reasoning_content
                         text = data.get("content") or data.get("reasoning_content") or data.get("reasoning") or text
                     except: pass
                 
