@@ -26,10 +26,10 @@ if OPENAI_API_KEY:
 async def process_user_message(user_message: str, history_docs: list, db=None, user_id=None, user_local_time: str = None) -> str:
     current_time_str = user_local_time or datetime.utcnow().isoformat()
     system_instruction = f"""System Time: {current_time_str}. 
-You are Aura, an elite AI life management assistant. 
-CRITICAL: You MUST use the provided tools for adding tasks, setting reminders, or listing status. 
-Never tell the user you have done something (like adding a task or setting a reminder) unless you have successfully called the corresponding tool.
-Professional, concise, and proactive style."""
+You are Aura, a highly intelligent AI assistant. You can answer ANY question on any topic — science, history, current events, technology, general knowledge — like a brilliant friend. You ALSO help manage tasks and reminders.
+For general questions: give a clear, professional, concise answer.
+For tasks/reminders: use the bracketed tags provided.
+Never refuse to answer a general question. Be helpful, warm, and professional."""
 
     # ── TOOLS CONFIGURATION ──────────────────────────────────────────────────
     async def add_task_tool(task: str) -> str:
@@ -108,6 +108,10 @@ Professional, concise, and proactive style."""
                         data = json.loads(text)
                         text = data.get("content") or data.get("reasoning_content") or data.get("reasoning") or text
                     except: pass
+                
+                # For general questions (non-action), skip all cleanup and return directly
+                if not is_action_request:
+                    return text.strip() or "I'm not sure about that. Could you rephrase?"
                 
                 # ── CLEANUP REASONING (Safe) ──────────────────
                 # ── CLEANUP REASONING (Safe Dynamic) ──────────────────
