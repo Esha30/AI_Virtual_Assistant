@@ -68,19 +68,8 @@ Professional, concise, and proactive style."""
         import httpx
         import re
         
-        system_instruction_proxy = system_instruction + """
-        STRICT RULES:
-        1. To add a task, you MUST include: [ADD_TASK: Task name]
-        2. To set a reminder, you MUST include: [SET_REMINDER: Task name | Time | ISO Time]
-        3. To get status, you MUST include: [GET_STATUS]
+        system_instruction_proxy = f"{system_instruction}\n\nSTRICT: You are a professional assistant. ONLY output the final response to the user. NEVER show your reasoning, internal thoughts, or tool instructions in the chat. If you use a tool, include the tag at the end of your message.\n\nTags:\n- [ADD_TASK: Task name]\n- [SET_REMINDER: Task name | Time | ISO]\n- [GET_STATUS]"
         
-        ONLY output plain text. Do not output JSON.
-        """
-        
-        proxy_messages = [{"role": "system", "content": system_instruction_proxy}]
-        # ... (rest of message prep)
-        
-        # (Self-correction: I'll just write the whole block to be safe)
         proxy_messages = [{"role": "system", "content": system_instruction_proxy}]
         for doc in history_docs[-5:]:
             if doc.get("user_message"):
@@ -90,13 +79,9 @@ Professional, concise, and proactive style."""
         proxy_messages.append({"role": "user", "content": user_message})
 
         async with httpx.AsyncClient() as client:
-            # Simplest possible call to Pollinations
             resp = await client.post(
                 "https://text.pollinations.ai/",
-                json={
-                    "messages": proxy_messages,
-                    "seed": 42
-                },
+                json={"messages": proxy_messages, "seed": 42},
                 timeout=30.0
             )
             
@@ -110,6 +95,12 @@ Professional, concise, and proactive style."""
                         text = data.get("content") or data.get("reasoning_content") or data.get("reasoning") or text
                     except: pass
                 
+                # ── CLEANUP REASONING (Final Defense) ──────────────────
+                if "The user wants" in text and "Therefore" in text:
+                    text = text.split("Therefore")[-1].strip()
+                if "Protocols updated" in text and len(text) > 50:
+                    text = text.replace("Protocols updated.", "").strip()
+                
                 # Intent Parsing
                 task_match = re.search(r"\[ADD_TASK:\s*(.*?)\]", text)
                 if task_match: await add_task_tool(task_match.group(1))
@@ -121,6 +112,7 @@ Professional, concise, and proactive style."""
                     text = text.replace("[GET_STATUS]", await get_status_tool())
                 
                 clean_text = re.sub(r"\[ADD_TASK:.*?\]|\[SET_REMINDER:.*?\]|\[GET_STATUS\]", "", text).strip()
+                clean_text = re.sub(r"^[:.,\s]+", "", clean_text)
                 return clean_text or "Protocols updated."
                 
     except Exception as e:
