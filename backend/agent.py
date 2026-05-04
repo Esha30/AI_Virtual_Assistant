@@ -211,7 +211,7 @@ Professional, concise, and proactive style."""
                 tool_calls = [p.function_call for p in parts if p.function_call]
                 
                 if not tool_calls:
-                    return response.text or "Protocols updated."
+                    return response.text or "Protocols updated (Turn 1 Complete)."
 
                 # Handle Tool Calls
                 tool_responses = []
@@ -244,7 +244,7 @@ Professional, concise, and proactive style."""
                     )
                 )
                 
-                return final_response.text or "Protocols updated. I've processed your request."
+                return final_response.text or "Protocols updated (I've processed your request)."
                 
             except Exception as e:
                 print(f"DEBUG: Gemini error with model {model_name}: {e}")

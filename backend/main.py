@@ -78,9 +78,10 @@ async def read_root(db = Depends(get_db)):
         db_status = f"error: {str(e)}"
     
     return {
-        "message": "AI Virtual Assistant API is running.",
+        "message": "AI Virtual Assistant API is running (v5-manual-loop).",
         "database": db_status,
-        "frontend_url": os.getenv("FRONTEND_URL", "not set")
+        "frontend_url": os.getenv("FRONTEND_URL", "not set"),
+        "version": "5.0.0"
     }
 
 @app.post("/signup")
