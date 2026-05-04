@@ -133,7 +133,7 @@ Professional, concise, and proactive style."""
         AVAILABLE_MODELS = [
             'gemini-1.5-flash',
             'gemini-1.5-flash-8b',
-            'gemini-2.0-flash-exp'
+            'gemini-1.5-pro'
         ]
         # Define tools for Gemini (manual handling)
         gemini_tools = [
@@ -211,7 +211,7 @@ Professional, concise, and proactive style."""
                 tool_calls = [p.function_call for p in parts if p.function_call]
                 
                 if not tool_calls:
-                    return response.text or "Protocols updated (Turn 1 Complete)."
+                    return response.text or "Protocols updated."
 
                 # Handle Tool Calls
                 tool_responses = []
@@ -244,15 +244,18 @@ Professional, concise, and proactive style."""
                     )
                 )
                 
-                return final_response.text or "Protocols updated (I've processed your request)."
+                return final_response.text or "Protocols updated."
                 
             except Exception as e:
                 print(f"DEBUG: Gemini error with model {model_name}: {e}")
-                # For troubleshooting, if it's the last model, return the error
+                # If it's a transient error or model not found, try the next one
+                if any(term in str(e).lower() for term in ["429", "quota", "503", "demand", "404", "not found", "500"]):
+                    if model_name != AVAILABLE_MODELS[-1]:
+                        continue
+                
+                # If we've exhausted all models or hit a fatal error, return the diagnostics
                 if model_name == AVAILABLE_MODELS[-1]:
-                    return f"Gemini Error ({model_name}): {str(e)}"
-                if any(term in str(e).lower() for term in ["429", "quota", "503", "demand", "404", "not found"]):
-                    continue
+                    return f"Gemini Error (All models failed): {str(e)}"
                 break
         
         gemini_failed = True
