@@ -295,7 +295,7 @@ const ChatPage = () => {
         setActiveSessionId(returnedSessionId);
         await fetchUnifiedData(returnedSessionId);
       } else {
-        await fetchUnifiedData(); // Refresh everything
+        await fetchUnifiedData(returnedSessionId || activeSessionId); // Refresh everything with correct ID
       }
     } catch {
       setMessages(prev => [...prev, {

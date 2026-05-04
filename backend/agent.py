@@ -48,7 +48,7 @@ Professional, concise, and proactive style."""
                     "task": task, "user_id": str(user_id), "completed": False, "created_at": datetime.utcnow()
                 })
                 print(f"DEBUG: Task inserted successfully. ID: {res.inserted_id}")
-                return f"SUCCESS: Task added: {task}"
+                return f"SUCCESS: I have added the task '{task}' to your to-do list."
             except Exception as e:
                 print(f"DEBUG: Error inserting task: {e}")
                 return f"ERROR: Database Error: {e}"
@@ -78,7 +78,7 @@ Professional, concise, and proactive style."""
                     "user_id": str(user_id), "completed": False, "created_at": datetime.utcnow()
                 })
                 print(f"DEBUG: Reminder inserted successfully. ID: {res.inserted_id}")
-                return f"SUCCESS: Reminder set for {task} at {time}."
+                return f"SUCCESS: I have set a reminder for '{task}' at {time}."
             except Exception as e:
                 print(f"DEBUG: Error inserting reminder: {e}")
                 return f"ERROR: Database Error: {e}"
