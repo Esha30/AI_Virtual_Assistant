@@ -96,18 +96,21 @@ Professional, concise, and proactive style."""
                         text = data.get("content") or data.get("reasoning_content") or data.get("reasoning") or text
                     except: pass
                 
-                # ── CLEANUP REASONING (Aggressive) ──────────────────
-                # Remove common proxy "thinking" or "instruction" phrases
-                patterns_to_remove = [
-                    r"User wants.*",
-                    r"The user wants.*",
-                    r"Use tool.*",
-                    r"Therefore.*",
-                    r"Protocols updated.*"
+                # ── CLEANUP REASONING (Safe) ──────────────────
+                # Remove common proxy "thinking" or "instruction" phrases safely without deleting the rest of the text
+                phrases_to_remove = [
+                    "User wants a reminder set. Use tool.",
+                    "The user wants a reminder set.",
+                    "User wants status: list status.",
+                    "The command: Tasks:",
+                    "Use tool.",
+                    "Therefore:",
+                    "Protocols updated.",
+                    "Protocols updated"
                 ]
-                for pattern in patterns_to_remove:
-                    text = re.sub(pattern, "", text, flags=re.IGNORECASE | re.DOTALL).strip()
-                
+                for phrase in phrases_to_remove:
+                    text = text.replace(phrase, "")
+                text = text.strip()                
                 # ── FUZZY INTENT PARSER (Backup Safety Net) ──────────────
                 # Catch cases where AI says "Reminder set for X at Y" without brackets
                 if "Reminder set for" in text and "[" not in text:
