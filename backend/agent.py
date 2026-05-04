@@ -84,7 +84,7 @@ Professional, concise, and proactive style."""
                 "https://text.pollinations.ai/",
                 json={
                     "messages": proxy_messages, 
-                    "model": "gpt-4o",
+                    "model": "openai",
                     "seed": random.randint(1, 1000000)
                 },
                 timeout=30.0
