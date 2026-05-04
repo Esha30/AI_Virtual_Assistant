@@ -50,6 +50,9 @@ const ChatPage = () => {
       
       if (data) {
         console.log('DEBUG: Unified data received:', data);
+        if (data.engines) {
+          console.log('DEBUG: Engine Status:', data.engines);
+        }
         if (data.sessions) setSessions(data.sessions);
         if (data.tasks) {
           console.log('DEBUG: Setting tasks:', data.tasks);

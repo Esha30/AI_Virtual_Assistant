@@ -333,11 +333,16 @@ async def get_unified_context(
         for doc in history:
             doc["_id"] = str(doc["_id"])
             
+    from agent import gemini_client, openai_client
     return {
         "sessions": sessions,
         "tasks": tasks,
         "reminders": reminders,
-        "history": history
+        "history": history,
+        "engines": {
+            "gemini": gemini_client is not None,
+            "openai": openai_client is not None
+        }
     }
 
 # ─────────────────────────────────────────────
