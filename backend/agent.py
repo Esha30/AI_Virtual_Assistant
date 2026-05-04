@@ -335,7 +335,7 @@ Professional, concise, and proactive style."""
                 
                 msg = response.choices[0].message
                 if not msg.tool_calls:
-                    return msg.content or "Protocols updated."
+                    return msg.content or "Protocols updated (OpenAI Turn 1)."
                 
                 messages.append(msg)
                 for tool_call in msg.tool_calls:
@@ -375,7 +375,7 @@ Professional, concise, and proactive style."""
                 
                 msg = response.json()["choices"][0]["message"]
                 if not msg.get("tool_calls"):
-                    return msg.get("content") or "Protocols updated."
+                    return msg.get("content") or "Protocols updated (Pollinations Turn 1)."
                 
                 messages_pollin.append(msg)
                 for tool_call in msg["tool_calls"]:
