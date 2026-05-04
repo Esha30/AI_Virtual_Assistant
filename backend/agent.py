@@ -76,7 +76,10 @@ Professional, concise, and proactive style."""
                 proxy_messages.append({"role": "user", "content": doc["user_message"]})
             if doc.get("bot_response"):
                 proxy_messages.append({"role": "assistant", "content": doc["bot_response"] or "..."})
-        proxy_messages.append({"role": "user", "content": user_message})
+        
+        # Append strict no-CoT instruction directly to the user message to force compliance
+        strict_user_message = user_message + "\n\n(CRITICAL INSTRUCTION: Output ONLY the bracketed tags. Do not output any conversational text, reasoning, or 'Chain of Thought'. Only the tags.)"
+        proxy_messages.append({"role": "user", "content": strict_user_message})
 
         async with httpx.AsyncClient() as client:
             import random
