@@ -195,7 +195,7 @@ Professional, concise, and proactive style."""
                 except Exception as e:
                     print(f"DEBUG: Gemini V2 error with {model_name}: {e}")
                     if model_name == 'gemini-1.5-pro':
-                        gemini_failed = True
+                        return f"Universal Gemini Error ({model_name}): {str(e)}"
                     continue
         except Exception as e:
             print(f"DEBUG: Fatal Gemini V2 error: {e}")
