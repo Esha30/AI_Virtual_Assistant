@@ -160,7 +160,7 @@ Professional, concise, and proactive style."""
                 
                 if resp.status_code != 200:
                     print(f"DEBUG: Gemini REST Error: {resp.status_code} - {resp.text}")
-                    gemini_failed = True
+                    return f"Gemini REST Error: {resp.status_code} - {resp.text[:200]}"
                 else:
                     data = resp.json()
                     text = data['candidates'][0]['content']['parts'][0]['text']
