@@ -97,10 +97,12 @@ Professional, concise, and proactive style."""
                     except: pass
                 
                 # ── CLEANUP REASONING (Safe) ──────────────────
-                # Remove common proxy "thinking" or "instruction" phrases safely without deleting the rest of the text
+                # ── CLEANUP REASONING (Safe Dynamic) ──────────────────
+                # Safely remove sentences where the AI thinks out loud (e.g., "User wants... Need to call...")
+                text = re.sub(r"(?i)(User wants.*?\. |The user wants.*?\. |Need to call.*?\. |We need to call.*?\. |Use tool.*?\. )", "", text)
+                
                 phrases_to_remove = [
                     "User wants a reminder set. Use tool.",
-                    "The user wants a reminder set.",
                     "User wants status: list status.",
                     "The command: Tasks:",
                     "Use tool.",
@@ -111,6 +113,7 @@ Professional, concise, and proactive style."""
                 for phrase in phrases_to_remove:
                     text = text.replace(phrase, "")
                 text = text.strip()                
+                
                 # ── FUZZY INTENT PARSER (Backup Safety Net) ──────────────
                 # Catch cases where AI says "Reminder set for X at Y" without brackets
                 if "Reminder set for" in text and "[" not in text:
@@ -123,6 +126,10 @@ Professional, concise, and proactive style."""
                     if fuzzy_task:
                         await add_task_tool(fuzzy_task.group(1))
 
+                # Fuzzy trigger for GET_STATUS
+                if any(phrase in text.lower() for phrase in ["list_status", "status tool", "list status", "list of their reminders"]):
+                    if "[GET_STATUS]" not in text:
+                        text += " [GET_STATUS]"
                 # ── PRIMARY INTENT PARSING (Support Multiple) ───────────
                 for match in re.finditer(r"\[ADD_TASK:\s*(.*?)\]", text):
                     await add_task_tool(match.group(1))
