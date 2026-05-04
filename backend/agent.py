@@ -92,18 +92,23 @@ Professional, concise, and proactive style."""
         async with httpx.AsyncClient() as client:
             resp = await client.post(
                 "https://text.pollinations.ai/",
-                json={"messages": proxy_messages, "model": "openai", "seed": 42},
+                json={
+                    "messages": proxy_messages,
+                    "model": "searchgpt", # More stable for standard chat
+                    "seed": 42
+                },
                 timeout=30.0
             )
             
             if resp.status_code == 200:
                 text = resp.text or ""
                 
-                # Cleanup JSON if the AI returned a raw JSON string
-                if text.strip().startswith("{") and "content" in text:
+                # Cleanup JSON / Reasoning
+                if text.strip().startswith("{"):
                     try:
                         data = json.loads(text)
-                        text = data.get("content", text)
+                        # Extract content, reasoning, or reasoning_content
+                        text = data.get("content") or data.get("reasoning_content") or data.get("reasoning") or text
                     except: pass
                 
                 # Intent Parsing
