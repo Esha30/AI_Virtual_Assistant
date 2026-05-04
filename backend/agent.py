@@ -132,16 +132,31 @@ Professional, concise, and proactive style."""
                     is_status_request = True
 
                 # ── PRIMARY INTENT PARSING (Support Multiple) ───────────
+                added_tasks = []
                 for match in re.finditer(r"\[ADD_TASK:\s*(.*?)\]", text):
                     await add_task_tool(match.group(1))
+                    added_tasks.append(match.group(1))
                 
+                added_rems = []
                 for match in re.finditer(r"\[SET_REMINDER:\s*(.*?)\|\s*(.*?)\|\s*(.*?)\]", text):
                     await set_reminder_tool(match.group(1), match.group(2), match.group(3))
+                    added_rems.append(f"'{match.group(1)}' at {match.group(2)}")
                 
                 if "[GET_STATUS]" in text or is_status_request:
-                    # Bypass all AI text completely for status checks to ensure a 100% clean professional response
+                    # Bypass all AI text completely for status checks
                     return await get_status_tool()
                 
+                # If any action was taken, completely ignore the AI's generated text (which might contain reasoning)
+                # and return a clean, hardcoded success message.
+                if added_tasks or added_rems:
+                    resp_parts = []
+                    if added_tasks:
+                        resp_parts.append(f"Task(s) added: {', '.join(added_tasks)}.")
+                    if added_rems:
+                        resp_parts.append(f"Reminder(s) set: {', '.join(added_rems)}.")
+                    return " ".join(resp_parts)
+                
+                # If no actions or status, return the cleaned AI text
                 clean_text = re.sub(r"\[ADD_TASK:.*?\]|\[SET_REMINDER:.*?\]|\[GET_STATUS\]", "", text).strip()
                 clean_text = re.sub(r"^[:.,\s]+", "", clean_text)
                 return clean_text or "Protocols updated."
