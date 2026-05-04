@@ -101,12 +101,12 @@ Professional, concise, and proactive style."""
                 if "Protocols updated" in text and len(text) > 50:
                     text = text.replace("Protocols updated.", "").strip()
                 
-                # Intent Parsing
-                task_match = re.search(r"\[ADD_TASK:\s*(.*?)\]", text)
-                if task_match: await add_task_tool(task_match.group(1))
+                # Intent Parsing (Support Multiple)
+                for match in re.finditer(r"\[ADD_TASK:\s*(.*?)\]", text):
+                    await add_task_tool(match.group(1))
                 
-                rem_match = re.search(r"\[SET_REMINDER:\s*(.*?)\|\s*(.*?)\|\s*(.*?)\]", text)
-                if rem_match: await set_reminder_tool(rem_match.group(1), rem_match.group(2), rem_match.group(3))
+                for match in re.finditer(r"\[SET_REMINDER:\s*(.*?)\|\s*(.*?)\|\s*(.*?)\]", text):
+                    await set_reminder_tool(match.group(1), match.group(2), match.group(3))
                 
                 if "[GET_STATUS]" in text:
                     text = text.replace("[GET_STATUS]", await get_status_tool())
