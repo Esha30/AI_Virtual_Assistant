@@ -68,7 +68,7 @@ Professional, concise, and proactive style."""
         import httpx
         import re
         
-        system_instruction_proxy = f"{system_instruction}\n\nCRITICAL RULE: You MUST include a tag for EVERY action. \n- To add a task, you MUST end your message with [ADD_TASK: Task Name]\n- To set a reminder, you MUST end your message with [SET_REMINDER: Name | Time | ISO]\n\nIf you don't include the [ADD_TASK: ...] tag, the task will FAIL to save. Even if you say 'Protocols updated', you MUST include the tag."
+        system_instruction_proxy = f"{system_instruction}\n\nCRITICAL RULE: You MUST include a tag for EVERY action. \n- To add a task: [ADD_TASK: Task Name]\n- To set a reminder: [SET_REMINDER: Name | Time | ISO]\n\nIf the user asks for MULTIPLE actions (e.g. a task AND a reminder), you MUST output MULTIPLE tags in your response. DO NOT FORGET ANY TAGS."
         
         proxy_messages = [{"role": "system", "content": system_instruction_proxy}]
         for doc in history_docs[-5:]:
@@ -82,7 +82,11 @@ Professional, concise, and proactive style."""
             import random
             resp = await client.post(
                 "https://text.pollinations.ai/",
-                json={"messages": proxy_messages, "seed": random.randint(1, 1000000)},
+                json={
+                    "messages": proxy_messages, 
+                    "model": "gpt-4o",
+                    "seed": random.randint(1, 1000000)
+                },
                 timeout=30.0
             )
             
