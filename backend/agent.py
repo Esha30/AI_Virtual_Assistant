@@ -77,9 +77,15 @@ Professional, concise, and proactive style."""
             if doc.get("bot_response"):
                 proxy_messages.append({"role": "assistant", "content": doc["bot_response"] or "..."})
         
-        # Append strict no-CoT instruction directly to the user message to force compliance
-        strict_user_message = user_message + "\n\n(CRITICAL INSTRUCTION: Output ONLY the bracketed tags. Do not output any conversational text, reasoning, or 'Chain of Thought'. Only the tags.)"
-        proxy_messages.append({"role": "user", "content": strict_user_message})
+        # Detect if action-based (task/reminder/status) or general question
+        action_keywords = ["add task", "add a task", "remind me", "set a reminder", "my tasks", "my reminders", "current status", "show me my", "add '", "add \""]
+        is_action_request = any(kw in user_message.lower() for kw in action_keywords)
+        
+        if is_action_request:
+            final_message = user_message + "\n\n(CRITICAL: Output ONLY the bracketed action tags. No conversation, no reasoning. ONLY the tags.)"
+        else:
+            final_message = user_message
+        proxy_messages.append({"role": "user", "content": final_message})
 
         async with httpx.AsyncClient() as client:
             import random
