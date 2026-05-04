@@ -126,141 +126,109 @@ Professional, concise, and proactive style."""
         "get_status_tool": get_status_tool
     }
 
-    # ── PRIMARY ENGINE: GEMINI ────────────────────────────────────────────────
-    # ── PRIMARY ENGINE: GEMINI ────────────────────────────────────────────────
+    # ── PRIMARY ENGINE: GEMINI (via OpenAI-compatible endpoint) ──────────────
     gemini_failed = False
-    if gemini_client:
-        AVAILABLE_MODELS = [
-            'models/gemini-1.5-flash',
-            'models/gemini-1.5-flash-8b',
-            'models/gemini-1.5-pro'
-        ]
-        # Define tools for Gemini (manual handling)
-        gemini_tools = [
-            types.Tool(function_declarations=[
-                types.FunctionDeclaration(
-                    name="add_task_tool",
-                    description="Adds a new task to the user's to-do list.",
-                    parameters=types.Schema(
-                        type="OBJECT",
-                        properties={
-                            "task": types.Schema(type="STRING", description="The task description")
-                        },
-                        required=["task"]
-                    )
-                ),
-                types.FunctionDeclaration(
-                    name="set_reminder_tool",
-                    description="Sets a reminder with a specific task and time.",
-                    parameters=types.Schema(
-                        type="OBJECT",
-                        properties={
-                            "task": types.Schema(type="STRING", description="The task description"),
-                            "time": types.Schema(type="STRING", description="Human readable time (e.g. '3pm')"),
-                            "structured_time": types.Schema(type="STRING", description="ISO 8601 string representing the exact date and time")
-                        },
-                        required=["task", "time", "structured_time"]
-                    )
-                ),
-                types.FunctionDeclaration(
-                    name="get_status_tool",
-                    description="Retrieves a detailed brief of the user's current tasks and reminders.",
-                    parameters=types.Schema(type="OBJECT", properties={})
-                ),
-                types.FunctionDeclaration(
-                    name="list_tasks_tool",
-                    description="Lists current pending tasks.",
-                    parameters=types.Schema(type="OBJECT", properties={})
-                ),
-                types.FunctionDeclaration(
-                    name="play_video_tool",
-                    description="Plays a YouTube video.",
-                    parameters=types.Schema(
-                        type="OBJECT",
-                        properties={
-                            "query": types.Schema(type="STRING", description="The search query for the video")
-                        },
-                        required=["query"]
-                    )
-                )
-            ])
-        ]
-        
-        contents = []
-        for doc in history_docs[-10:]:
-            if doc.get("user_message"):
-                contents.append(types.Content(role="user", parts=[types.Part.from_text(text=doc["user_message"])]))
-            if doc.get("bot_response"):
-                contents.append(types.Content(role="model", parts=[types.Part.from_text(text=doc["bot_response"] or "...")]))
-        contents.append(types.Content(role="user", parts=[types.Part.from_text(text=user_message)]))
+    if GEMINI_API_KEY:
+        try:
+            # Use the OpenAI-compatible endpoint for Gemini to resolve persistent 404/compatibility issues
+            gemini_via_openai = AsyncOpenAI(
+                api_key=GEMINI_API_KEY,
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+            )
+            
+            AVAILABLE_MODELS = ['gemini-1.5-flash', 'gemini-1.5-pro']
+            
+            messages = [{"role": "system", "content": system_instruction}]
+            for doc in history_docs[-10:]:
+                if doc.get("user_message"):
+                    messages.append({"role": "user", "content": doc["user_message"]})
+                if doc.get("bot_response"):
+                    messages.append({"role": "assistant", "content": doc["bot_response"] or "..."})
+            messages.append({"role": "user", "content": user_message})
 
-        for model_name in AVAILABLE_MODELS:
-            try:
-                # Turn 1: Get Tool Call or Text
-                response = await gemini_client.aio.models.generate_content(
-                    model=model_name,
-                    contents=contents,
-                    config=types.GenerateContentConfig(
-                        tools=gemini_tools,
-                        system_instruction=system_instruction
-                    )
-                )
-                
-                # Check for tool calls
-                parts = response.candidates[0].content.parts
-                tool_calls = [p.function_call for p in parts if p.function_call]
-                
-                if not tool_calls:
-                    return response.text or "Protocols updated."
+            openai_tools_config = [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "add_task_tool",
+                        "description": "Adds a new task to the user's to-do list.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {"task": {"type": "string"}},
+                            "required": ["task"]
+                        }
+                    }
+                },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "set_reminder_tool",
+                        "description": "Sets a reminder with a specific task and time.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "task": {"type": "string"},
+                                "time": {"type": "string", "description": "Human readable time (e.g. '3pm')"},
+                                "structured_time": {"type": "string", "description": "ISO 8601 string"}
+                            },
+                            "required": ["task", "time", "structured_time"]
+                        }
+                    }
+                },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "get_status_tool",
+                        "description": "Retrieves a detailed brief of the user's current tasks and reminders."
+                    }
+                }
+            ]
 
-                # Handle Tool Calls
-                tool_responses = []
-                for tc in tool_calls:
-                    fn_name = tc.name
-                    args = tc.args or {}
-                    fn = tools_map.get(fn_name)
-                    if fn:
-                        print(f"DEBUG: Manually calling {fn_name} with args {args}")
-                        res_text = await fn(**args)
-                        tool_responses.append(types.Part.from_function_response(
-                            name=fn_name,
-                            response={"result": res_text}
-                        ))
-                    else:
-                        tool_responses.append(types.Part.from_function_response(
-                            name=fn_name,
-                            response={"result": f"Error: Tool {fn_name} not found."}
-                        ))
-
-                # Turn 2: Send tool results back to model
-                contents.append(response.candidates[0].content)
-                contents.append(types.Content(role="user", parts=tool_responses))
-                
-                final_response = await gemini_client.aio.models.generate_content(
-                    model=model_name,
-                    contents=contents,
-                    config=types.GenerateContentConfig(
-                        system_instruction=system_instruction
+            for model_name in AVAILABLE_MODELS:
+                try:
+                    response = await gemini_via_openai.chat.completions.create(
+                        model=model_name,
+                        messages=messages,
+                        tools=openai_tools_config,
+                        tool_choice="auto"
                     )
-                )
-                
-                return final_response.text or "Protocols updated."
-                
-            except Exception as e:
-                print(f"DEBUG: Gemini error with model {model_name}: {e}")
-                # If it's a transient error or model not found, try the next one
-                if any(term in str(e).lower() for term in ["429", "quota", "503", "demand", "404", "not found", "500"]):
-                    if model_name != AVAILABLE_MODELS[-1]:
-                        continue
-                
-                # If we've exhausted all models or hit a fatal error, return the diagnostics
-                if model_name == AVAILABLE_MODELS[-1]:
-                    return f"Gemini Error (All models failed): {str(e)}"
-                break
-        
-        gemini_failed = True
+                    
+                    msg = response.choices[0].message
+                    if not msg.tool_calls:
+                        return msg.content or "Protocols updated."
+
+                    # Handle Tool Calls
+                    messages.append(msg)
+                    for tool_call in msg.tool_calls:
+                        fn_name = tool_call.function.name
+                        fn_args = json.loads(tool_call.function.arguments)
+                        fn = tools_map.get(fn_name)
+                        if fn:
+                            print(f"DEBUG: calling {fn_name} with args {fn_args}")
+                            res_text = await fn(**fn_args)
+                            messages.append({
+                                "role": "tool",
+                                "tool_call_id": tool_call.id,
+                                "name": fn_name,
+                                "content": res_text
+                            })
+                    
+                    # Final response after tool calls
+                    final_response = await gemini_via_openai.chat.completions.create(
+                        model=model_name,
+                        messages=messages
+                    )
+                    return final_response.choices[0].message.content or "Protocols updated."
+
+                except Exception as e:
+                    print(f"DEBUG: Gemini (via OpenAI) error with {model_name}: {e}")
+                    if model_name == AVAILABLE_MODELS[-1]:
+                        gemini_failed = True
+                    continue
+        except Exception as e:
+            print(f"DEBUG: Fatal Gemini Bridge error: {e}")
+            gemini_failed = True
     else:
-        print("DEBUG: GEMINI_API_KEY is missing. Skipping Gemini.")
         gemini_failed = True
 
     # ── FALLBACK ENGINE: OPENAI ───────────────────────────────────────────────
