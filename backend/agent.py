@@ -223,7 +223,7 @@ Professional, concise, and proactive style."""
                 except Exception as e:
                     print(f"DEBUG: Gemini (via OpenAI) error with {model_name}: {e}")
                     if model_name == AVAILABLE_MODELS[-1]:
-                        gemini_failed = True
+                        return f"Gemini Bridge Error ({model_name}): {str(e)}"
                     continue
         except Exception as e:
             print(f"DEBUG: Fatal Gemini Bridge error: {e}")
