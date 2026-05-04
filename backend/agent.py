@@ -95,11 +95,17 @@ Professional, concise, and proactive style."""
                         text = data.get("content") or data.get("reasoning_content") or data.get("reasoning") or text
                     except: pass
                 
-                # ── CLEANUP REASONING (Final Defense) ──────────────────
-                if "The user wants" in text and "Therefore" in text:
-                    text = text.split("Therefore")[-1].strip()
-                if "Protocols updated" in text and len(text) > 50:
-                    text = text.replace("Protocols updated.", "").strip()
+                # ── CLEANUP REASONING (Aggressive) ──────────────────
+                # Remove common proxy "thinking" or "instruction" phrases
+                patterns_to_remove = [
+                    r"User wants.*",
+                    r"The user wants.*",
+                    r"Use tool.*",
+                    r"Therefore.*",
+                    r"Protocols updated.*"
+                ]
+                for pattern in patterns_to_remove:
+                    text = re.sub(pattern, "", text, flags=re.IGNORECASE | re.DOTALL).strip()
                 
                 # Intent Parsing (Support Multiple)
                 for match in re.finditer(r"\[ADD_TASK:\s*(.*?)\]", text):
