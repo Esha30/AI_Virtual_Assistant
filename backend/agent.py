@@ -126,15 +126,15 @@ Professional, concise, and proactive style."""
         "get_status_tool": get_status_tool
     }
 
-    # ── RAW REST ENGINE: GEMINI (Guaranteed Reliability) ──────────────────
-    # This version bypasses all SDKs and calls the Google API directly via REST.
-    # This resolves all 404/versioning issues caused by the library.
+    # ── STABLE ENGINE: GEMINI v1 ─────────────────────────────────────────
+    # This version uses the final 'v1' stable API for maximum reliability.
     gemini_failed = False
     if GEMINI_API_KEY:
         try:
             import httpx
+            import re
             
-            # 1. Prepare history for REST API
+            # 1. Prepare history
             contents_rest = []
             for doc in history_docs[-6:]:
                 if doc.get("user_message"):
@@ -143,49 +143,56 @@ Professional, concise, and proactive style."""
                     contents_rest.append({"role": "model", "parts": [{"text": doc["bot_response"] or "..."}]})
             contents_rest.append({"role": "user", "parts": [{"text": user_message}]})
 
-            # 2. Add System Instruction to the prompt
-            prompt_with_system = f"{system_instruction}\n\nCRITICAL: To use tools, you MUST include one of these tags in your response:\n- [ADD_TASK: Task description]\n- [SET_REMINDER: Task description | Human Time | ISO Time]\n- [GET_STATUS]\n- [LIST_TASKS]\n\nUser: {user_message}"
-            # Actually, the proper way in v1beta is to use 'system_instruction' field or just prepending.
-            # We'll use the 'contents' style for simplicity and compatibility.
+            # 2. Try Stable Models in v1
+            # Note: We use 'v1' instead of 'v1beta'
+            for model_name in ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro"]:
+                url = f"https://generativelanguage.googleapis.com/v1/models/{model_name}:generateContent?key={GEMINI_API_KEY}"
+                
+                async with httpx.AsyncClient() as client:
+                    try:
+                        resp = await client.post(url, json={
+                            "contents": contents_rest,
+                            "systemInstruction": {"parts": [{"text": system_instruction + "\n\nTo use tools, include these tags: [ADD_TASK: Task], [SET_REMINDER: Task | Time | ISO], [GET_STATUS]"}]}
+                        }, timeout=30.0)
+                        
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            text = data['candidates'][0]['content']['parts'][0]['text']
+                            
+                            # Manual tool parsing
+                            task_match = re.search(r"\[ADD_TASK:\s*(.*?)\]", text)
+                            if task_match: await add_task_tool(task_match.group(1))
+                            
+                            rem_match = re.search(r"\[SET_REMINDER:\s*(.*?)\|\s*(.*?)\|\s*(.*?)\]", text)
+                            if rem_match: await set_reminder_tool(rem_match.group(1), rem_match.group(2), rem_match.group(3))
+                            
+                            if "[GET_STATUS]" in text:
+                                text = text.replace("[GET_STATUS]", await get_status_tool())
+                            
+                            clean_text = re.sub(r"\[ADD_TASK:.*?\]|\[SET_REMINDER:.*?\]|\[GET_STATUS\]", "", text).strip()
+                            return clean_text or "Protocols updated."
+                        else:
+                            print(f"DEBUG: v1 failed for {model_name}: {resp.status_code}")
+                            continue # Try next model
+                    except Exception as e:
+                        print(f"DEBUG: v1 exception for {model_name}: {e}")
+                        continue
             
-            # 3. Call the API
-            model_name_rest = "gemini-1.5-flash"
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name_rest}:generateContent?key={GEMINI_API_KEY}"
-            
+            # If all v1 models failed, fall back to v1beta as a last resort (sometimes needed for Flash 1.5)
+            url_beta = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
             async with httpx.AsyncClient() as client:
-                resp = await client.post(url, json={
+                resp = await client.post(url_beta, json={
                     "contents": contents_rest,
                     "systemInstruction": {"parts": [{"text": system_instruction}]}
-                }, timeout=30.0)
-                
-                if resp.status_code != 200:
-                    print(f"DEBUG: Gemini REST Error: {resp.status_code} - {resp.text}")
-                    return f"Gemini REST Error: {resp.status_code} - {resp.text[:200]}"
-                else:
+                }, timeout=15.0)
+                if resp.status_code == 200:
                     data = resp.json()
                     text = data['candidates'][0]['content']['parts'][0]['text']
-                    
-                    # ── MANUAL INTENT PARSING (Same as before) ──────────────────
-                    import re
-                    task_match = re.search(r"\[ADD_TASK:\s*(.*?)\]", text)
-                    if task_match: await add_task_tool(task_match.group(1))
-                    
-                    rem_match = re.search(r"\[SET_REMINDER:\s*(.*?)\|\s*(.*?)\|\s*(.*?)\]", text)
-                    if rem_match: await set_reminder_tool(rem_match.group(1), rem_match.group(2), rem_match.group(3))
-                    
-                    if "[GET_STATUS]" in text:
-                        status = await get_status_tool()
-                        text = text.replace("[GET_STATUS]", status)
-                    
-                    if "[LIST_TASKS]" in text:
-                        tasks = await list_tasks_tool()
-                        text = text.replace("[LIST_TASKS]", tasks)
-                        
-                    clean_text = re.sub(r"\[ADD_TASK:.*?\]|\[SET_REMINDER:.*?\]|\[LIST_TASKS\]|\[GET_STATUS\]", "", text).strip()
-                    return clean_text or "Protocols updated."
+                    return re.sub(r"\[.*?\]", "", text).strip() or "Protocols updated."
 
+            gemini_failed = True
         except Exception as e:
-            print(f"DEBUG: Gemini REST Fatal Error: {e}")
+            print(f"DEBUG: Gemini Stable Engine Error: {e}")
             gemini_failed = True
     else:
         gemini_failed = True
