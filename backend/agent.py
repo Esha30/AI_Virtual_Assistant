@@ -131,9 +131,9 @@ Professional, concise, and proactive style."""
     gemini_failed = False
     if gemini_client:
         AVAILABLE_MODELS = [
-            'gemini-1.5-flash',
-            'gemini-1.5-flash-8b',
-            'gemini-1.5-pro'
+            'models/gemini-1.5-flash',
+            'models/gemini-1.5-flash-8b',
+            'models/gemini-1.5-pro'
         ]
         # Define tools for Gemini (manual handling)
         gemini_tools = [
