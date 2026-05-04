@@ -127,9 +127,10 @@ Professional, concise, and proactive style."""
                         await add_task_tool(fuzzy_task.group(1))
 
                 # Fuzzy trigger for GET_STATUS
-                if any(phrase in text.lower() for phrase in ["list_status", "status tool", "list status", "list of their reminders"]):
-                    if "[GET_STATUS]" not in text:
-                        text += " [GET_STATUS]"
+                is_status_request = False
+                if any(phrase in text.lower() for phrase in ["list_status", "status tool", "list status", "list of their reminders", "tasks:", "reminders:", "tasks and reminders"]):
+                    is_status_request = True
+
                 # ── PRIMARY INTENT PARSING (Support Multiple) ───────────
                 for match in re.finditer(r"\[ADD_TASK:\s*(.*?)\]", text):
                     await add_task_tool(match.group(1))
@@ -137,8 +138,9 @@ Professional, concise, and proactive style."""
                 for match in re.finditer(r"\[SET_REMINDER:\s*(.*?)\|\s*(.*?)\|\s*(.*?)\]", text):
                     await set_reminder_tool(match.group(1), match.group(2), match.group(3))
                 
-                if "[GET_STATUS]" in text:
-                    text = text.replace("[GET_STATUS]", await get_status_tool())
+                if "[GET_STATUS]" in text or is_status_request:
+                    # Bypass all AI text completely for status checks to ensure a 100% clean professional response
+                    return await get_status_tool()
                 
                 clean_text = re.sub(r"\[ADD_TASK:.*?\]|\[SET_REMINDER:.*?\]|\[GET_STATUS\]", "", text).strip()
                 clean_text = re.sub(r"^[:.,\s]+", "", clean_text)
