@@ -6,6 +6,7 @@ from google.genai import types
 from openai import AsyncOpenAI
 from dotenv import load_dotenv
 from datetime import datetime
+from bson import ObjectId
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
 
 load_dotenv()
@@ -57,7 +58,10 @@ Professional, concise, and proactive style."""
     async def list_tasks_tool() -> str:
         """Lists current pending tasks."""
         if db is not None and user_id:
-            cursor = db.tasks.find({"user_id": user_id, "completed": False})
+            cursor = db.tasks.find({
+                "$or": [{"user_id": str(user_id)}, {"user_id": ObjectId(user_id)}],
+                "completed": False
+            })
             tasks = await cursor.to_list(length=20)
             return "Your Tasks:\n" + "\n".join([f"- {t['task']}" for t in tasks]) if tasks else "No tasks."
         return "DB Error."
@@ -88,9 +92,15 @@ Professional, concise, and proactive style."""
     async def get_status_tool() -> str:
         """Retrieves a detailed brief of the user's current tasks and reminders."""
         if db is not None and user_id:
-            tasks_cursor = db.tasks.find({"user_id": user_id, "completed": False})
+            tasks_cursor = db.tasks.find({
+                "$or": [{"user_id": str(user_id)}, {"user_id": ObjectId(user_id)}],
+                "completed": False
+            })
             tasks = await tasks_cursor.to_list(length=20)
-            reminders_cursor = db.reminders.find({"user_id": user_id, "completed": False})
+            reminders_cursor = db.reminders.find({
+                "$or": [{"user_id": str(user_id)}, {"user_id": ObjectId(user_id)}],
+                "completed": False
+            })
             reminders = await reminders_cursor.to_list(length=20)
             
             status_text = "### Quick Briefing\n\n"
@@ -123,7 +133,7 @@ Professional, concise, and proactive style."""
         AVAILABLE_MODELS = [
             'gemini-1.5-flash',
             'gemini-1.5-flash-8b',
-            'gemini-2.0-flash'
+            'gemini-2.0-flash-exp'
         ]
         gemini_tools = [add_task_tool, list_tasks_tool, set_reminder_tool, play_video_tool, get_status_tool]
         
@@ -152,6 +162,14 @@ Professional, concise, and proactive style."""
                 
                 if response.text:
                     return response.text
+                
+                # If model called a tool but didn't generate a final response, try to get one
+                if response.candidates and response.candidates[0].content.parts:
+                    # If the last part was a tool call/response, we might need another turn
+                    # but with automatic_function_calling=True, it should have already happened.
+                    # As a fallback, return a friendly confirmation if the task was likely done.
+                    return "Protocols updated. I've processed your request."
+                
                 return "Protocols updated."
                 
             except Exception as e:

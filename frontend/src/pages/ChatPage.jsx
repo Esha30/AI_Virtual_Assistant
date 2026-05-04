@@ -49,9 +49,16 @@ const ChatPage = () => {
       const data = await res.json();
       
       if (data) {
+        console.log('DEBUG: Unified data received:', data);
         if (data.sessions) setSessions(data.sessions);
-        if (data.tasks) setTasks(data.tasks);
-        if (data.reminders) setReminders(data.reminders);
+        if (data.tasks) {
+          console.log('DEBUG: Setting tasks:', data.tasks);
+          setTasks(data.tasks);
+        }
+        if (data.reminders) {
+          console.log('DEBUG: Setting reminders:', data.reminders);
+          setReminders(data.reminders);
+        }
         if (data.history && (sid || !activeSessionId)) {
           const loaded = [];
           data.history.forEach(doc => {
