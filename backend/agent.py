@@ -48,12 +48,12 @@ Professional, concise, and proactive style."""
                     "task": task, "user_id": str(user_id), "completed": False, "created_at": datetime.utcnow()
                 })
                 print(f"DEBUG: Task inserted successfully. ID: {res.inserted_id}")
-                return f"Task added: {task}"
+                return f"SUCCESS: Task added: {task}"
             except Exception as e:
                 print(f"DEBUG: Error inserting task: {e}")
-                return f"Database Error: {e}"
+                return f"ERROR: Database Error: {e}"
         print("DEBUG: Database or user_id missing in tool.")
-        return "DB Error."
+        return "ERROR: System Context unavailable."
 
     async def list_tasks_tool() -> str:
         """Lists current pending tasks."""
@@ -66,23 +66,23 @@ Professional, concise, and proactive style."""
             return "Your Tasks:\n" + "\n".join([f"- {t['task']}" for t in tasks]) if tasks else "No tasks."
         return "DB Error."
 
-    async def set_reminder_tool(task: str, time: str, structured_time: str) -> str:
-        """Sets a reminder with a specific task and time. 
-        'time' is human readable (e.g., '3pm'). 
-        'structured_time' must be a valid ISO 8601 string representing the exact date and time."""
+    async def set_reminder_tool(task: str, time: str, structured_time: str = None) -> str:
+        """Sets a reminder with a specific task and time."""
         print(f"DEBUG: set_reminder_tool called for task='{task}', time='{time}', user_id='{user_id}'")
         if db is not None and user_id:
             try:
+                # Ensure structured_time is at least the human readable time if missing
+                s_time = structured_time or time
                 res = await db.reminders.insert_one({
-                    "task": task, "time": time, "scheduled_time": structured_time,
+                    "task": task, "time": time, "scheduled_time": s_time,
                     "user_id": str(user_id), "completed": False, "created_at": datetime.utcnow()
                 })
                 print(f"DEBUG: Reminder inserted successfully. ID: {res.inserted_id}")
-                return f"Reminder set for {task} at {time}."
+                return f"SUCCESS: Reminder set for {task} at {time}."
             except Exception as e:
                 print(f"DEBUG: Error inserting reminder: {e}")
-                return f"Database Error: {e}"
-        return "DB Error."
+                return f"ERROR: Database Error: {e}"
+        return "ERROR: System Context unavailable."
 
     async def play_video_tool(query: str) -> str:
         """Plays a YouTube video."""
@@ -127,60 +127,129 @@ Professional, concise, and proactive style."""
     }
 
     # ── PRIMARY ENGINE: GEMINI ────────────────────────────────────────────────
+    # ── PRIMARY ENGINE: GEMINI ────────────────────────────────────────────────
     gemini_failed = False
     if gemini_client:
-        # Prioritize standard models with high free capacity
         AVAILABLE_MODELS = [
             'gemini-1.5-flash',
             'gemini-1.5-flash-8b',
             'gemini-2.0-flash-exp'
         ]
-        gemini_tools = [add_task_tool, list_tasks_tool, set_reminder_tool, play_video_tool, get_status_tool]
+        # Define tools for Gemini (manual handling)
+        gemini_tools = [
+            types.Tool(function_declarations=[
+                types.FunctionDeclaration(
+                    name="add_task_tool",
+                    description="Adds a new task to the user's to-do list.",
+                    parameters=types.Schema(
+                        type="OBJECT",
+                        properties={
+                            "task": types.Schema(type="STRING", description="The task description")
+                        },
+                        required=["task"]
+                    )
+                ),
+                types.FunctionDeclaration(
+                    name="set_reminder_tool",
+                    description="Sets a reminder with a specific task and time.",
+                    parameters=types.Schema(
+                        type="OBJECT",
+                        properties={
+                            "task": types.Schema(type="STRING", description="The task description"),
+                            "time": types.Schema(type="STRING", description="Human readable time (e.g. '3pm')"),
+                            "structured_time": types.Schema(type="STRING", description="ISO 8601 string representing the exact date and time")
+                        },
+                        required=["task", "time", "structured_time"]
+                    )
+                ),
+                types.FunctionDeclaration(
+                    name="get_status_tool",
+                    description="Retrieves a detailed brief of the user's current tasks and reminders.",
+                    parameters=types.Schema(type="OBJECT", properties={})
+                ),
+                types.FunctionDeclaration(
+                    name="list_tasks_tool",
+                    description="Lists current pending tasks.",
+                    parameters=types.Schema(type="OBJECT", properties={})
+                ),
+                types.FunctionDeclaration(
+                    name="play_video_tool",
+                    description="Plays a YouTube video.",
+                    parameters=types.Schema(
+                        type="OBJECT",
+                        properties={
+                            "query": types.Schema(type="STRING", description="The search query for the video")
+                        },
+                        required=["query"]
+                    )
+                )
+            ])
+        ]
         
         contents = []
-        # Use more history to ensure it "never ends after only one message"
         for doc in history_docs[-10:]:
             if doc.get("user_message"):
                 contents.append(types.Content(role="user", parts=[types.Part.from_text(text=doc["user_message"])]))
             if doc.get("bot_response"):
                 contents.append(types.Content(role="model", parts=[types.Part.from_text(text=doc["bot_response"] or "...")]))
-
-        config = types.GenerateContentConfig(
-            tools=gemini_tools,
-            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=False),
-            system_instruction=system_instruction
-        )
+        contents.append(types.Content(role="user", parts=[types.Part.from_text(text=user_message)]))
 
         for model_name in AVAILABLE_MODELS:
             try:
-                # Use automatic function calling
+                # Turn 1: Get Tool Call or Text
                 response = await gemini_client.aio.models.generate_content(
                     model=model_name,
-                    contents=contents + [types.Content(role="user", parts=[types.Part.from_text(text=user_message)])],
-                    config=config
+                    contents=contents,
+                    config=types.GenerateContentConfig(
+                        tools=gemini_tools,
+                        system_instruction=system_instruction
+                    )
                 )
                 
-                if response.text:
-                    return response.text
+                # Check for tool calls
+                parts = response.candidates[0].content.parts
+                tool_calls = [p.function_call for p in parts if p.function_call]
                 
-                # If model called a tool but didn't generate a final response, try to get one
-                if response.candidates and response.candidates[0].content.parts:
-                    # If the last part was a tool call/response, we might need another turn
-                    # but with automatic_function_calling=True, it should have already happened.
-                    # As a fallback, return a friendly confirmation if the task was likely done.
-                    return "Protocols updated. I've processed your request."
+                if not tool_calls:
+                    return response.text or "Protocols updated."
+
+                # Handle Tool Calls
+                tool_responses = []
+                for tc in tool_calls:
+                    fn_name = tc.name
+                    args = tc.args or {}
+                    fn = tools_map.get(fn_name)
+                    if fn:
+                        print(f"DEBUG: Manually calling {fn_name} with args {args}")
+                        res_text = await fn(**args)
+                        tool_responses.append(types.Part.from_function_response(
+                            name=fn_name,
+                            response={"result": res_text}
+                        ))
+                    else:
+                        tool_responses.append(types.Part.from_function_response(
+                            name=fn_name,
+                            response={"result": f"Error: Tool {fn_name} not found."}
+                        ))
+
+                # Turn 2: Send tool results back to model
+                contents.append(response.candidates[0].content)
+                contents.append(types.Content(role="user", parts=tool_responses))
                 
-                return "Protocols updated."
+                final_response = await gemini_client.aio.models.generate_content(
+                    model=model_name,
+                    contents=contents,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_instruction
+                    )
+                )
+                
+                return final_response.text or "Protocols updated. I've processed your request."
                 
             except Exception as e:
-                err_msg = str(e).lower()
                 print(f"DEBUG: Gemini error with model {model_name}: {e}")
-                import traceback
-                traceback.print_exc()
-                # If it's a model-specific error or quota, try next model
-                if any(term in err_msg for term in ["429", "quota", "503", "demand", "404", "not found", "400"]):
+                if any(term in str(e).lower() for term in ["429", "quota", "503", "demand", "404", "not found"]):
                     continue
-                # If it's a serious error, we might still want to try OpenAI fallback
                 break
         
         gemini_failed = True
