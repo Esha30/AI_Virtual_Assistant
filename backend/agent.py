@@ -248,6 +248,9 @@ Professional, concise, and proactive style."""
                 
             except Exception as e:
                 print(f"DEBUG: Gemini error with model {model_name}: {e}")
+                # For troubleshooting, if it's the last model, return the error
+                if model_name == AVAILABLE_MODELS[-1]:
+                    return f"Gemini Error ({model_name}): {str(e)}"
                 if any(term in str(e).lower() for term in ["429", "quota", "503", "demand", "404", "not found"]):
                     continue
                 break
